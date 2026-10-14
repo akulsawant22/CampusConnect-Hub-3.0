@@ -28,7 +28,7 @@ function GateError({ error }: ErrorComponentProps) {
     <div className="grid min-h-screen place-items-center px-4">
       <div role="alert" className="max-w-sm space-y-3 rounded-xl border bg-card p-6 text-center">
         <h1 className="font-semibold">We couldn't open your dashboard</h1>
-        <p className="text-sm text-muted-foreground">{error?.message || "Something went wrong."}</p>
+        <p className="text-sm text-muted-foreground">{error instanceof Error ? error.message : "Something went wrong."}</p>
         <div className="flex justify-center gap-2">
           <Button size="sm" onClick={() => router.invalidate()}>Retry</Button>
           <Button size="sm" variant="ghost" asChild><Link to="/auth">Back to sign-in</Link></Button>
