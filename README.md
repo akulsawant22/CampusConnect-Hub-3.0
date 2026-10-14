@@ -78,7 +78,7 @@ The client uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Server-
 ## Checks
 
 ```bash
-bunx tsgo --noEmit
+bunx tsc --noEmit
 bun run test
 bun run build
 ```

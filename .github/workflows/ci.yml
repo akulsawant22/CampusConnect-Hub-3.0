@@ -17,7 +17,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Type check
-        run: bunx tsgo --noEmit
+        run: bunx tsc --noEmit
       - name: Unit tests
         run: bun run test
       - name: Production build
