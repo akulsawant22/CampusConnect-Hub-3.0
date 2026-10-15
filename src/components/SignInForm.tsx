@@ -14,8 +14,10 @@ type Msg = { kind: "error" | "info"; text: string } | null;
 function friendly(message: string): string {
   const m = message.toLowerCase();
   if (m.includes("invalid login")) return "Wrong email or password. Check both and try again.";
-  if (m.includes("email not confirmed")) return "This email isn't confirmed yet. Open the confirmation link we emailed you, then sign in.";
-  if (m.includes("rate limit") || m.includes("too many")) return "Too many attempts. Wait a minute and try again.";
+  if (m.includes("email not confirmed"))
+    return "This email isn't confirmed yet. Open the confirmation link we emailed you, then sign in.";
+  if (m.includes("rate limit") || m.includes("too many"))
+    return "Too many attempts. Wait a minute and try again.";
   return message;
 }
 
@@ -36,9 +38,14 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
   // `session` comes straight from the sign-in response when available, so we don't
   // re-read storage (each read can wait on the preview's session relay).
   async function enterApp(session?: Session | null) {
-    const s = session ?? (await withTimeout(supabase.auth.getSession(), 15000, "Session check")).data.session;
+    const s =
+      session ??
+      (await withTimeout(supabase.auth.getSession(), 15000, "Session check")).data.session;
     if (!s) {
-      setMsg({ kind: "error", text: "Sign-in didn't create a session. Allow cookies/storage for this site and try again." });
+      setMsg({
+        kind: "error",
+        text: "Sign-in didn't create a session. Allow cookies/storage for this site and try again.",
+      });
       return;
     }
     await qc.cancelQueries({ queryKey: ["me"] });
@@ -66,13 +73,18 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
     try {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
-          email, password,
+          email,
+          password,
           options: { emailRedirectTo: window.location.origin, data: { full_name: name } },
         });
         if (error) throw error;
         setSent(true);
       } else {
-        const { data, error } = await withTimeout(supabase.auth.signInWithPassword({ email, password }), 20000, "Sign-in");
+        const { data, error } = await withTimeout(
+          supabase.auth.signInWithPassword({ email, password }),
+          20000,
+          "Sign-in",
+        );
         if (error) throw error;
         await enterApp(data.session);
       }
@@ -86,9 +98,18 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
 
   async function forgot() {
     setMsg(null);
-    if (!email) { setMsg({ kind: "error", text: "Enter your email above first." }); return; }
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
-    setMsg(error ? { kind: "error", text: error.message } : { kind: "info", text: "If that account exists, a reset link is on its way." });
+    if (!email) {
+      setMsg({ kind: "error", text: "Enter your email above first." });
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setMsg(
+      error
+        ? { kind: "error", text: error.message }
+        : { kind: "info", text: "If that account exists, a reset link is on its way." },
+    );
   }
 
   async function google() {
@@ -123,42 +144,108 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
       <div className="pointer-events-none absolute inset-0 bg-glow" />
       <div className="relative w-full max-w-sm rounded-xl border bg-card p-7 shadow-elevated">
         <Link to="/" className="mb-6 flex items-center gap-2 text-sm font-medium">
-          <span className="grid size-6 place-items-center rounded-md bg-primary text-xs font-bold text-primary-foreground">C</span>
+          <span className="grid size-6 place-items-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
+            C
+          </span>
           CampusConnect
-          {staff && <span className="ml-auto rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Staff</span>}
+          {staff && (
+            <span className="ml-auto rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+              Staff
+            </span>
+          )}
         </Link>
         {sent ? (
           <div className="space-y-2">
             <h1 className="text-lg font-semibold">Check your email</h1>
-            <p className="text-sm text-muted-foreground">We sent a confirmation link to {email}. Open it to finish creating your account.</p>
+            <p className="text-sm text-muted-foreground">
+              We sent a confirmation link to {email}. Open it to finish creating your account.
+            </p>
           </div>
         ) : (
           <>
             <h1 className="text-lg font-semibold tracking-tight">
-              {staff ? "Admin / Organizer sign-in" : mode === "signin" ? "Welcome back" : "Create your account"}
+              {staff
+                ? "Admin / Organizer sign-in"
+                : mode === "signin"
+                  ? "Welcome back"
+                  : "Create your account"}
             </h1>
             <p className="mb-5 mt-1 text-sm text-muted-foreground">
               {staff
                 ? "Use your normal account. Staff access is granted by the college administrator."
                 : "New accounts start as students."}
             </p>
-            <Button variant="outline" className="w-full" onClick={google} type="button" disabled={busy}>Continue with Google</Button>
-            <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground"><div className="h-px flex-1 bg-border" />or<div className="h-px flex-1 bg-border" /></div>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={google}
+              type="button"
+              disabled={busy}
+            >
+              Continue with Google
+            </Button>
+            <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+              <div className="h-px flex-1 bg-border" />
+              or
+              <div className="h-px flex-1 bg-border" />
+            </div>
             <form onSubmit={submit} className="space-y-3" noValidate={false}>
               {mode === "signup" && !staff && (
-                <div className="space-y-1.5"><Label htmlFor="name">Full name</Label><Input id="name" required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} /></div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">Full name</Label>
+                  <Input
+                    id="name"
+                    required
+                    maxLength={120}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
               )}
-              <div className="space-y-1.5"><Label htmlFor="email">Email</Label><Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-              <div className="space-y-1.5"><Label htmlFor="pw">Password</Label><Input id="pw" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+              <div className="space-y-1.5">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pw">Password</Label>
+                <Input
+                  id="pw"
+                  type="password"
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
               {msg && (
-                <div role={msg.kind === "error" ? "alert" : "status"} className={`rounded-md border px-3 py-2 text-sm ${msg.kind === "error" ? "border-destructive/50 bg-destructive/10 text-destructive" : "bg-muted text-foreground"}`}>
+                <div
+                  role={msg.kind === "error" ? "alert" : "status"}
+                  className={`rounded-md border px-3 py-2 text-sm ${msg.kind === "error" ? "border-destructive/50 bg-destructive/10 text-destructive" : "bg-muted text-foreground"}`}
+                >
                   {msg.text}
                 </div>
               )}
               {denied && (
                 <div className="flex gap-2">
-                  <Button type="button" size="sm" variant="secondary" onClick={() => navigate({ to: "/dashboard" })}>Go to my dashboard</Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={signOut}>Sign out</Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => navigate({ to: "/dashboard" })}
+                  >
+                    Go to my dashboard
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={signOut}>
+                    Sign out
+                  </Button>
                 </div>
               )}
               <Button className="w-full" disabled={busy} aria-busy={busy}>
@@ -166,20 +253,35 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
               </Button>
             </form>
             {!staff && (
-              <button type="button" className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground" onClick={() => { setMsg(null); setMode(mode === "signin" ? "signup" : "signin"); }}>
+              <button
+                type="button"
+                className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setMsg(null);
+                  setMode(mode === "signin" ? "signup" : "signin");
+                }}
+              >
                 {mode === "signin" ? "No account? Sign up" : "Have an account? Sign in"}
               </button>
             )}
             {mode === "signin" && (
-              <button type="button" className="mt-2 w-full text-center text-xs text-muted-foreground hover:text-foreground" onClick={forgot}>
+              <button
+                type="button"
+                className="mt-2 w-full text-center text-xs text-muted-foreground hover:text-foreground"
+                onClick={forgot}
+              >
                 Forgot password?
               </button>
             )}
             <div className="mt-5 border-t pt-4 text-center text-xs">
               {staff ? (
-                <Link to="/auth" className="text-muted-foreground hover:text-foreground">Student sign-in</Link>
+                <Link to="/auth" className="text-muted-foreground hover:text-foreground">
+                  Student sign-in
+                </Link>
               ) : (
-                <Link to="/staff-login" className="font-medium text-primary hover:underline">Admin / Organizer sign-in →</Link>
+                <Link to="/staff-login" className="font-medium text-primary hover:underline">
+                  Admin / Organizer sign-in →
+                </Link>
               )}
             </div>
           </>

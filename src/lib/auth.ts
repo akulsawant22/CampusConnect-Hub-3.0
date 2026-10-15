@@ -19,7 +19,10 @@ export async function loadMe(user: { id: string; email?: string | null }): Promi
     Promise.all([
       supabase.from("profiles").select("full_name,email").eq("id", user.id).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", user.id),
-      supabase.from("event_staff").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+      supabase
+        .from("event_staff")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id),
     ]),
     10000,
     "Loading your account",

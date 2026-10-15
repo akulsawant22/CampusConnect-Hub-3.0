@@ -1,6 +1,7 @@
 # CampusConnect roadmap
 
 Done
+
 - [x] Design system, landing, auth (email + Google), protected dashboard shell
 - [x] Schema + RLS + trusted DB functions
 - [ ] HISTORICAL ONLY (earlier session, not rerun): 18 SQL permission tests passed (supabase/tests/authorization_test.sql)
@@ -9,11 +10,13 @@ Done
 - [x] Event cover uploads (private bucket, manager-only writes, signed URLs)
 
 Open (blocked)
+
 - [ ] Email sign-up confirmation end to end — needs a real inbox to click the link
 - [ ] Google sign-in end to end — needs a real Google account in an interactive browser
 - [ ] Camera scanning on a physical device — headless browser has no camera
 
 ## Launch readiness (Oct 13, evidence-based)
+
 - [x] Sign-up confirmation link returns to the public home page (was a protected page)
 - [x] Forgot-password link + /reset-password page
 - [x] Live test script fails closed unless CC_TEST_ENV=disposable, CC_TEST_BACKEND_URL matches, not the production URL, and a test-backend cleanup key is present; try/finally cleanup of all rows/files it creates

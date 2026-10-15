@@ -6,7 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { PageHeader, Empty } from "@/components/PageHeader";
 import { errMsg, fmtDate } from "@/lib/format";
 import { useMe } from "@/lib/auth";
@@ -16,8 +22,14 @@ export const Route = createFileRoute("/_authenticated/dashboard/tickets")({ comp
 
 function Qr({ token }: { token: string }) {
   const [src, setSrc] = useState("");
-  useEffect(() => { import("qrcode").then((q) => q.toDataURL(token, { margin: 1, width: 280 }).then(setSrc)); }, [token]);
-  return src ? <img src={src} alt="Ticket QR code" className="mx-auto rounded-lg bg-foreground p-2" /> : <div className="h-72" />;
+  useEffect(() => {
+    import("qrcode").then((q) => q.toDataURL(token, { margin: 1, width: 280 }).then(setSrc));
+  }, [token]);
+  return src ? (
+    <img src={src} alt="Ticket QR code" className="mx-auto rounded-lg bg-foreground p-2" />
+  ) : (
+    <div className="h-72" />
+  );
 }
 
 function Tickets() {
@@ -27,7 +39,10 @@ function Tickets() {
     queryKey: ["my-tickets"],
     queryFn: async () => {
       const [regs, tix, att, certs, fb] = await Promise.all([
-        supabase.from("registrations").select("id,status,event_id,events(title,starts_at,ends_at,venue)").order("created_at", { ascending: false }),
+        supabase
+          .from("registrations")
+          .select("id,status,event_id,events(title,starts_at,ends_at,venue)")
+          .order("created_at", { ascending: false }),
         supabase.from("tickets").select("registration_id,token"),
         supabase.from("attendance").select("registration_id,checked_in_at"),
         supabase.from("certificates").select("registration_id,serial,issued_at"),
@@ -44,15 +59,25 @@ function Tickets() {
     },
   });
   const cancel = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.rpc("cancel_registration", { _registration_id: id }); if (error) throw error; },
-    onSuccess: () => { toast.success("Registration cancelled"); qc.invalidateQueries(); },
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("cancel_registration", { _registration_id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Registration cancelled");
+      qc.invalidateQueries();
+    },
     onError: (e) => toast.error(errMsg(e)),
   });
 
   return (
     <div className="max-w-4xl">
       <PageHeader title="My tickets" sub="Show the QR code at the entrance. Never share it." />
-      {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : !data?.regs.length ? <Empty>You haven't registered for any events.</Empty> : (
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : !data?.regs.length ? (
+        <Empty>You haven't registered for any events.</Empty>
+      ) : (
         <div className="divide-y rounded-xl border bg-card">
           {data.regs.map((r) => {
             const attended = data.att.get(r.id);
@@ -62,24 +87,61 @@ function Tickets() {
               <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div>
                   <div className="font-medium">{r.events?.title}</div>
-                  <div className="text-xs text-muted-foreground">{fmtDate(r.events?.starts_at)} · {r.events?.venue}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {fmtDate(r.events?.starts_at)} · {r.events?.venue}
+                  </div>
                   <div className="mt-1.5 flex gap-1.5">
-                    {r.status === "cancelled" ? <Badge variant="outline">Cancelled</Badge> : attended ? <Badge>Checked in</Badge> : <Badge variant="secondary">Registered</Badge>}
+                    {r.status === "cancelled" ? (
+                      <Badge variant="outline">Cancelled</Badge>
+                    ) : attended ? (
+                      <Badge>Checked in</Badge>
+                    ) : (
+                      <Badge variant="secondary">Registered</Badge>
+                    )}
                     {cert && <Badge variant="outline">Certificate</Badge>}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {r.status === "registered" && !attended && token && (
                     <Dialog>
-                      <DialogTrigger asChild><Button size="sm">Show QR</Button></DialogTrigger>
-                      <DialogContent className="max-w-sm"><DialogHeader><DialogTitle>{r.events?.title}</DialogTitle></DialogHeader><Qr token={token} /></DialogContent>
+                      <DialogTrigger asChild>
+                        <Button size="sm">Show QR</Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-sm">
+                        <DialogHeader>
+                          <DialogTitle>{r.events?.title}</DialogTitle>
+                        </DialogHeader>
+                        <Qr token={token} />
+                      </DialogContent>
                     </Dialog>
                   )}
                   {r.status === "registered" && !attended && (
-                    <Button size="sm" variant="ghost" disabled={cancel.isPending} onClick={() => cancel.mutate(r.id)}>Cancel</Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={cancel.isPending}
+                      onClick={() => cancel.mutate(r.id)}
+                    >
+                      Cancel
+                    </Button>
                   )}
                   {cert && (
-                    <Button size="sm" variant="secondary" onClick={() => downloadCertificate({ name: me?.fullName || me?.email || "", event: r.events?.title ?? "", date: new Date(r.events?.starts_at ?? cert.issued_at).toLocaleDateString(), serial: cert.serial })}>Download certificate</Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() =>
+                        downloadCertificate({
+                          name: me?.fullName || me?.email || "",
+                          event: r.events?.title ?? "",
+                          date: new Date(
+                            r.events?.starts_at ?? cert.issued_at,
+                          ).toLocaleDateString(),
+                          serial: cert.serial,
+                        })
+                      }
+                    >
+                      Download certificate
+                    </Button>
                   )}
                   {attended && !data.fb.has(r.event_id) && <FeedbackDialog eventId={r.event_id} />}
                 </div>
@@ -100,24 +162,50 @@ function FeedbackDialog({ eventId }: { eventId: string }) {
   const [comment, setComment] = useState("");
   const save = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("feedback").insert({ event_id: eventId, user_id: me!.id, rating, comment: comment.trim() || null });
+      const { error } = await supabase
+        .from("feedback")
+        .insert({ event_id: eventId, user_id: me!.id, rating, comment: comment.trim() || null });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Thanks for your feedback"); setOpen(false); qc.invalidateQueries(); },
+    onSuccess: () => {
+      toast.success("Thanks for your feedback");
+      setOpen(false);
+      qc.invalidateQueries();
+    },
     onError: (e) => toast.error(errMsg(e)),
   });
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button size="sm" variant="outline">Give feedback</Button></DialogTrigger>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          Give feedback
+        </Button>
+      </DialogTrigger>
       <DialogContent className="max-w-sm">
-        <DialogHeader><DialogTitle>How was it?</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>How was it?</DialogTitle>
+        </DialogHeader>
         <div className="flex gap-1.5">
           {[1, 2, 3, 4, 5].map((n) => (
-            <Button key={n} size="sm" variant={n <= rating ? "default" : "secondary"} onClick={() => setRating(n)}>{n}</Button>
+            <Button
+              key={n}
+              size="sm"
+              variant={n <= rating ? "default" : "secondary"}
+              onClick={() => setRating(n)}
+            >
+              {n}
+            </Button>
           ))}
         </div>
-        <Textarea maxLength={2000} placeholder="Optional comment" value={comment} onChange={(e) => setComment(e.target.value)} />
-        <Button disabled={save.isPending} onClick={() => save.mutate()}>Submit</Button>
+        <Textarea
+          maxLength={2000}
+          placeholder="Optional comment"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+        />
+        <Button disabled={save.isPending} onClick={() => save.mutate()}>
+          Submit
+        </Button>
       </DialogContent>
     </Dialog>
   );

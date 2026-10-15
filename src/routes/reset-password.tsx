@@ -12,7 +12,10 @@ export const Route = createFileRoute("/reset-password")({
       { title: "Reset password — CampusConnect" },
       { name: "description", content: "Choose a new password for your CampusConnect account." },
       { property: "og:title", content: "Reset password — CampusConnect" },
-      { property: "og:description", content: "Choose a new password for your CampusConnect account." },
+      {
+        property: "og:description",
+        content: "Choose a new password for your CampusConnect account.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -37,7 +40,9 @@ function ResetPassword() {
     const { data } = supabase.auth.onAuthStateChange((e, session) => {
       if (e === "PASSWORD_RECOVERY" || (e === "SIGNED_IN" && session)) setReady(true);
     });
-    void supabase.auth.getSession().then(({ data: s }) => { if (s.session) setReady(true); });
+    void supabase.auth.getSession().then(({ data: s }) => {
+      if (s.session) setReady(true);
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -46,7 +51,10 @@ function ResetPassword() {
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password: pw });
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Password updated");
     navigate({ to: "/dashboard", replace: true });
   }
@@ -57,11 +65,25 @@ function ResetPassword() {
         <h1 className="text-lg font-semibold tracking-tight">Set a new password</h1>
         {ready ? (
           <form onSubmit={submit} className="mt-5 space-y-3">
-            <div className="space-y-1.5"><Label htmlFor="newpw">New password</Label><Input id="newpw" type="password" required minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} /></div>
-            <Button className="w-full" disabled={busy}>Update password</Button>
+            <div className="space-y-1.5">
+              <Label htmlFor="newpw">New password</Label>
+              <Input
+                id="newpw"
+                type="password"
+                required
+                minLength={8}
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+              />
+            </div>
+            <Button className="w-full" disabled={busy}>
+              Update password
+            </Button>
           </form>
         ) : (
-          <p className="mt-2 text-sm text-muted-foreground">{linkError || "Open this page from the reset link in your email."}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {linkError || "Open this page from the reset link in your email."}
+          </p>
         )}
       </div>
     </div>
