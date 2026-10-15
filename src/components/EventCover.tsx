@@ -4,13 +4,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { errMsg } from "@/lib/format";
+import { validateCoverImage } from "@/lib/validation";
 
 const BUCKET = "event-covers";
-const TYPES: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-};
 
 // cover_url stores the private storage path ("<eventId>/cover-<ts>.<ext>"); we sign it for display.
 export function EventCover({ path, className = "" }: { path: string | null; className?: string }) {
@@ -31,15 +27,12 @@ export function CoverUploader({ eventId, path }: { eventId: string; path: string
   const [busy, setBusy] = useState(false);
 
   async function upload(file: File) {
-    const ext = TYPES[file.type];
-    if (!ext) {
-      toast.error("Use a JPG, PNG or WebP image");
+    const check = validateCoverImage(file);
+    if (!check.valid) {
+      toast.error(check.error || "Invalid image file");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be under 5 MB");
-      return;
-    }
+    const ext = check.extension!;
     setBusy(true);
     try {
       const newPath = `${eventId}/cover-${Date.now()}.${ext}`;

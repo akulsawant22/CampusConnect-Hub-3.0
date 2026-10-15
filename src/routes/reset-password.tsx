@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { validatePassword } from "@/lib/validation";
 
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
@@ -48,6 +49,12 @@ function ResetPassword() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
+    const err = validatePassword(pw);
+    if (err) {
+      toast.error(err);
+      return;
+    }
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password: pw });
     setBusy(false);

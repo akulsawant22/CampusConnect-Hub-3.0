@@ -17,6 +17,7 @@ import { PageHeader, Empty } from "@/components/PageHeader";
 import { errMsg, fmtDate } from "@/lib/format";
 import { useMe } from "@/lib/auth";
 import { downloadCertificate } from "@/lib/certificate";
+import { validateFeedback } from "@/lib/validation";
 
 export const Route = createFileRoute("/_authenticated/dashboard/tickets")({ component: Tickets });
 
@@ -153,29 +154,47 @@ function Tickets() {
     </div>
   );
 }
-
 function FeedbackDialog({ eventId }: { eventId: string }) {
   const qc = useQueryClient();
   const { data: me } = useMe();
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+  const [err, setErr] = useState("");
+
   const save = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("feedback")
-        .insert({ event_id: eventId, user_id: me!.id, rating, comment: comment.trim() || null });
+      if (!me?.id) throw new Error("You must be signed in to leave feedback");
+      const val = validateFeedback({ rating, comment: comment.trim() || null });
+      if (!val.success) throw new Error(val.error);
+      const { error } = await supabase.from("feedback").insert({
+        event_id: eventId,
+        user_id: me.id,
+        rating: val.data!.rating,
+        comment: val.data!.comment ?? null,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Thanks for your feedback");
       setOpen(false);
+      setErr("");
       qc.invalidateQueries();
     },
-    onError: (e) => toast.error(errMsg(e)),
+    onError: (e) => {
+      setErr(errMsg(e));
+      toast.error(errMsg(e));
+    },
   });
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setErr("");
+      }}
+    >
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
           Give feedback
@@ -190,6 +209,7 @@ function FeedbackDialog({ eventId }: { eventId: string }) {
             <Button
               key={n}
               size="sm"
+              disabled={save.isPending}
               variant={n <= rating ? "default" : "secondary"}
               onClick={() => setRating(n)}
             >
@@ -199,12 +219,21 @@ function FeedbackDialog({ eventId }: { eventId: string }) {
         </div>
         <Textarea
           maxLength={2000}
-          placeholder="Optional comment"
+          disabled={save.isPending}
+          placeholder="Optional comment (max 2,000 characters)"
           value={comment}
           onChange={(e) => setComment(e.target.value)}
         />
-        <Button disabled={save.isPending} onClick={() => save.mutate()}>
-          Submit
+        {err && (
+          <div
+            role="alert"
+            className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive"
+          >
+            {err}
+          </div>
+        )}
+        <Button disabled={save.isPending} aria-busy={save.isPending} onClick={() => save.mutate()}>
+          {save.isPending ? "Submitting…" : "Submit"}
         </Button>
       </DialogContent>
     </Dialog>

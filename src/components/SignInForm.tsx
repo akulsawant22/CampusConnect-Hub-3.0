@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { loadMe, meQuery } from "@/lib/auth";
 import { postSignInTarget, withTimeout } from "@/lib/auth-flow";
+import { validateEmail, validatePassword, validateSignUp } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,7 +66,28 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (inFlight.current) return;
+    if (inFlight.current || busy) return;
+
+    // Validate email format
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      setMsg({ kind: "error", text: emailErr });
+      return;
+    }
+
+    if (mode === "signup") {
+      const signupErr = validateSignUp({ fullName: name, email, password });
+      if (signupErr) {
+        setMsg({ kind: "error", text: signupErr });
+        return;
+      }
+    } else {
+      if (!password) {
+        setMsg({ kind: "error", text: "Password is required." });
+        return;
+      }
+    }
+
     inFlight.current = true;
     setBusy(true);
     setMsg(null);
@@ -73,15 +95,15 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
     try {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
-          options: { emailRedirectTo: window.location.origin, data: { full_name: name } },
+          options: { emailRedirectTo: window.location.origin, data: { full_name: name.trim() } },
         });
         if (error) throw error;
         setSent(true);
       } else {
         const { data, error } = await withTimeout(
-          supabase.auth.signInWithPassword({ email, password }),
+          supabase.auth.signInWithPassword({ email: email.trim(), password }),
           20000,
           "Sign-in",
         );
@@ -97,19 +119,26 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
   }
 
   async function forgot() {
+    if (busy) return;
     setMsg(null);
-    if (!email) {
-      setMsg({ kind: "error", text: "Enter your email above first." });
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      setMsg({ kind: "error", text: "Enter a valid email address above first." });
       return;
     }
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setMsg(
-      error
-        ? { kind: "error", text: error.message }
-        : { kind: "info", text: "If that account exists, a reset link is on its way." },
-    );
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      setMsg(
+        error
+          ? { kind: "error", text: error.message }
+          : { kind: "info", text: "If that account exists, a reset link is on its way." },
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function google() {
@@ -255,7 +284,8 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
             {!staff && (
               <button
                 type="button"
-                className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
+                disabled={busy}
+                className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
                 onClick={() => {
                   setMsg(null);
                   setMode(mode === "signin" ? "signup" : "signin");
@@ -267,7 +297,8 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
             {mode === "signin" && (
               <button
                 type="button"
-                className="mt-2 w-full text-center text-xs text-muted-foreground hover:text-foreground"
+                disabled={busy}
+                className="mt-2 w-full text-center text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
                 onClick={forgot}
               >
                 Forgot password?
