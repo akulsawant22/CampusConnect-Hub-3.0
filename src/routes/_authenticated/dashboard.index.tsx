@@ -67,7 +67,7 @@ function Overview() {
         </div>
         <p className="mt-1 text-sm text-muted-foreground">Your workspace adapts to your roles.</p>
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Active registrations" value={counts?.regs ?? "—"} />
         <Stat label="Certificates" value={counts?.certs ?? "—"} />
         <Stat label="Unread notifications" value={counts?.unread ?? "—"} />

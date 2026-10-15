@@ -210,8 +210,9 @@ function Users({ selfId }: { selfId: string | undefined }) {
   return (
     <div className="space-y-3">
       <Input
-        className="max-w-xs"
+        className="w-full sm:max-w-xs"
         placeholder="Search name or email"
+        aria-label="Search users by name or email"
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />
@@ -222,7 +223,7 @@ function Users({ selfId }: { selfId: string | undefined }) {
               <div>{u.full_name || "—"}</div>
               <div className="text-xs text-muted-foreground">{u.email}</div>
             </div>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-3">
               {ROLES.map((role) => (
                 <label
                   key={role}
@@ -230,6 +231,7 @@ function Users({ selfId }: { selfId: string | undefined }) {
                 >
                   <Switch
                     disabled={u.id === selfId || toggle.isPending}
+                    aria-label={`${role} role for ${u.full_name || u.email}`}
                     checked={u.roles.includes(role)}
                     onCheckedChange={(c) => toggle.mutate({ id: u.id, role, grant: c })}
                   />
@@ -283,7 +285,9 @@ function Audit() {
           <span className="text-muted-foreground">{fmtDate(a.created_at)}</span>
           <span className="text-primary">{a.action}</span>
           <span className="text-muted-foreground">{a.actor_id?.slice(0, 8)}</span>
-          <span className="truncate text-muted-foreground">{JSON.stringify(a.metadata)}</span>
+          <span className="max-w-full break-all text-muted-foreground">
+            {JSON.stringify(a.metadata)}
+          </span>
         </div>
       ))}
     </div>

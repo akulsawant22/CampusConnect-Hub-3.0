@@ -53,10 +53,10 @@ function Landing() {
         <p className="mb-4 font-mono text-xs uppercase tracking-widest text-primary">
           Campus event operations
         </p>
-        <h1 className="max-w-3xl text-5xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
+        <h1 className="max-w-3xl text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl md:text-6xl">
           Every college event, from announcement to certificate.
         </h1>
-        <p className="mt-6 max-w-xl text-lg text-muted-foreground">
+        <p className="mt-6 max-w-xl text-base text-muted-foreground sm:text-lg">
           One workspace for admins, organizers, students and volunteers — with permissions enforced
           by the database, not the screen.
         </p>
@@ -65,7 +65,7 @@ function Landing() {
             <Link to="/auth">Get started</Link>
           </Button>
         </div>
-        <div className="mt-24 grid gap-px overflow-hidden rounded-xl border bg-border md:grid-cols-4">
+        <div className="mt-16 grid gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-2 md:mt-24 md:grid-cols-4">
           {features.map(([t, d], i) => (
             <div key={t} className="bg-card p-6">
               <span className="font-mono text-xs text-muted-foreground">0{i + 1}</span>

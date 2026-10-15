@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/PageHeader";
 import { errMsg } from "@/lib/format";
 
@@ -23,6 +24,7 @@ function Scanner() {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [count, setCount] = useState(0);
+  const [manualToken, setManualToken] = useState("");
   const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
   const lastRef = useRef<{ token: string; at: number }>({ token: "", at: 0 });
   const busyRef = useRef(false);
@@ -187,8 +189,32 @@ function Scanner() {
           {count} checked in this session
         </span>
       </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!manualToken.trim()) return;
+          void handle(manualToken.trim());
+          setManualToken("");
+        }}
+        className="mt-4 flex gap-2"
+      >
+        <Input
+          value={manualToken}
+          onChange={(e) => setManualToken(e.target.value)}
+          placeholder="Manual token fallback"
+          aria-label="Ticket token for manual check-in"
+          className="flex-1"
+        />
+        <Button type="submit" variant="secondary" size="sm">
+          Check in
+        </Button>
+      </form>
       {result && (
-        <div className={`mt-4 rounded-xl border p-4 text-sm font-medium ${tone}`}>
+        <div
+          role={result.kind === "error" ? "alert" : "status"}
+          aria-live="polite"
+          className={`mt-4 rounded-xl border p-4 text-sm font-medium ${tone}`}
+        >
           {result.text}
         </div>
       )}

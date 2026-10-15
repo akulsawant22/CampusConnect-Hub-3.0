@@ -714,12 +714,14 @@ Explicit instruction from the project owner:
 Do NOT stop at auditing or documenting issues. Every identified issue — P0, P1, P2, and P3 — must be fully implemented and fixed in the codebase before the final commit and push.
 
 This includes:
+
 - All P0 security vulnerabilities (race conditions, mutable search_path, etc.)
 - All P1 authorization gaps (overly permissive grants, RLS gaps)
 - All P2 issues (validation gaps, missing error states, stale cache, etc.)
 - All P3 issues (UI polish, accessibility, formatting, empty states, etc.)
 
 For each fix:
+
 1. Implement the smallest correct repair.
 2. Write or update a regression test proving the fix.
 3. Verify the fix does not break existing tests, typecheck, or build.
@@ -739,6 +741,7 @@ Commit: f6e5532
 Branch: main → origin/main
 
 What was committed:
+
 - 115 files Prettier-normalized (ESLint: 0 errors)
 - TypeScript: 0 errors (fixed 6 TS errors in concurrency.test.ts)
 - Migration 0008: P0 concurrency race fix + search_path hardening
@@ -747,6 +750,7 @@ What was committed:
 - All 32 tests passing
 
 Gen 2 should continue from Milestone 1 completion onward. Remaining phases:
+
 - Phase C: Frontend & backend validation (Zod schemas, duplicate submission prevention)
 - Phase E: Full schema inventory and migration review
 - Phase F: Auth & session management audit
@@ -766,6 +770,7 @@ CRITICAL INSTRUCTION FROM PROJECT OWNER — HIGHEST PRIORITY:
 Every single issue detected — P0, P1, P2, P3 — must be FULLY FIXED in the codebase, not just documented or reported. This is non-negotiable.
 
 The workflow for EVERY issue found is:
+
 1. DETECT the issue
 2. IMPLEMENT the fix (smallest correct repair)
 3. Write/update a regression test proving the fix works
@@ -774,6 +779,7 @@ The workflow for EVERY issue found is:
 6. PUSH to origin/main immediately after each significant batch of fixes
 
 Do NOT:
+
 - Leave any issue as "documented" or "deferred" unless blocked by missing external credentials
 - Stop after producing audit reports
 - Wait until the end to commit — commit and push after each phase completes
@@ -781,12 +787,10 @@ Do NOT:
 If a fix is blocked by missing Supabase credentials or production-only action, state the EXACT blocker and continue fixing everything else.
 
 Current clean baseline on origin/main (commit f6e5532):
+
 - TypeScript: 0 errors
-- ESLint: 0 errors  
+- ESLint: 0 errors
 - Tests: 32/32 passing
 - Build: passing
 
 Continue through Phases C → L, fixing every issue found, committing and pushing after each phase. The final commit should leave the codebase in a fully production-ready state.
-
-
-

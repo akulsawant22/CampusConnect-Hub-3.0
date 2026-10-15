@@ -189,7 +189,7 @@ function EventAdmin() {
         <Stat label="Avg rating" value={s.avg_rating ?? "—"} />
       </div>
       <Tabs defaultValue="people">
-        <TabsList>
+        <TabsList className="grid h-auto w-full grid-cols-2 sm:h-9 sm:w-auto sm:inline-flex">
           <TabsTrigger value="people">Registrations</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="volunteers">Volunteers</TabsTrigger>
@@ -329,9 +329,10 @@ function Volunteers({ eventId, isAdmin }: { eventId: string; isAdmin: boolean })
           }}
         >
           <Input
-            className="max-w-xs"
+            className="w-full sm:max-w-xs"
             type="email"
             required
+            aria-label="Student email to assign as volunteer"
             placeholder="Student email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
