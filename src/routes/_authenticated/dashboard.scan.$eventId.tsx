@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ const LABELS: Record<string, string> = {
 
 function Scanner() {
   const { eventId } = Route.useParams();
+  const qc = useQueryClient();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [count, setCount] = useState(0);
@@ -26,10 +27,17 @@ function Scanner() {
   const lastRef = useRef<{ token: string; at: number }>({ token: "", at: 0 });
   const busyRef = useRef(false);
   // UI gate only; check_in_ticket re-verifies permission on every scan.
-  const { data: ev, isLoading } = useQuery({
+  const {
+    data: ev,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["scan-ev", eventId],
     queryFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
+      const { data: u, error: uErr } = await supabase.auth.getUser();
+      if (uErr) throw uErr;
       const uid = u.user?.id;
       if (!uid) return null;
       const [e, staff, roles] = await Promise.all([
@@ -42,6 +50,9 @@ function Scanner() {
           .maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", uid),
       ]);
+      if (e.error) throw e.error;
+      if (staff.error) throw staff.error;
+      if (roles.error) throw roles.error;
       if (!e.data) return null;
       const r = (roles.data ?? []).map((x) => x.role);
       const allowed =
@@ -58,6 +69,25 @@ function Scanner() {
     [],
   );
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (isError)
+    return (
+      <div className="max-w-md">
+        <Link to="/dashboard" className="text-xs text-muted-foreground hover:text-foreground">
+          ← Dashboard
+        </Link>
+        <PageHeader title="Scan tickets" sub="" />
+        <div
+          role="alert"
+          className="rounded-xl border border-destructive/50 bg-destructive/10 p-6 text-center"
+        >
+          <h2 className="font-semibold text-destructive">Failed to load scanner</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{errMsg(error)}</p>
+          <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
   if (!ev?.allowed)
     return (
       <div className="max-w-md">
@@ -87,6 +117,9 @@ function Scanner() {
       if (r.result === "ok") {
         setCount((c) => c + 1);
         setResult({ kind: "ok", text: `Checked in ${r.name || "attendee"}`, at: now });
+        qc.invalidateQueries({ queryKey: ["event-admin", eventId] });
+        qc.invalidateQueries({ queryKey: ["my-staff"] });
+        qc.invalidateQueries({ queryKey: ["analytics"] });
       } else if (r.result === "duplicate")
         setResult({
           kind: "duplicate",

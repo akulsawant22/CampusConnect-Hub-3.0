@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authenticated/dashboard/events")({ compo
 function Browse() {
   const qc = useQueryClient();
   const { data: me } = useMe();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["browse"],
     queryFn: async () => {
       const [ev, mine] = await Promise.all([
@@ -23,10 +23,12 @@ function Browse() {
           .select("*")
           .eq("status", "published")
           .gte("ends_at", new Date().toISOString())
-          .order("starts_at"),
-        supabase.from("registrations").select("event_id,status"),
+          .order("starts_at")
+          .limit(100),
+        supabase.from("registrations").select("event_id,status").limit(500),
       ]);
       if (ev.error) throw ev.error;
+      if (mine.error) throw mine.error;
       return {
         events: ev.data,
         mine: new Map((mine.data ?? []).map((r) => [r.event_id, r.status])),
@@ -40,7 +42,9 @@ function Browse() {
     },
     onSuccess: () => {
       toast.success("Registered — your ticket is in My tickets");
-      qc.invalidateQueries();
+      qc.invalidateQueries({ queryKey: ["browse"] });
+      qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["my-tickets"] });
     },
     onError: (e) => toast.error(errMsg(e)),
   });
@@ -51,6 +55,17 @@ function Browse() {
       <PageHeader title="Events" sub="Upcoming published events on campus." />
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : isError ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-destructive/50 bg-destructive/10 p-6 text-center"
+        >
+          <h2 className="font-semibold text-destructive">Failed to load events</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{errMsg(error)}</p>
+          <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
+            Retry
+          </Button>
+        </div>
       ) : !data?.events.length ? (
         <Empty>No upcoming events yet.</Empty>
       ) : (

@@ -90,6 +90,11 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
       throw new Error("Unauthorized: Invalid token");
     }
 
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (typeof data.claims.exp === "number" && data.claims.exp < nowSec) {
+      throw new Error("Unauthorized: Token expired");
+    }
+
     if (!data.claims.sub) {
       throw new Error("Unauthorized: No user ID found in token");
     }

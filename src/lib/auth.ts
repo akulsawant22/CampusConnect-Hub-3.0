@@ -29,6 +29,7 @@ export async function loadMe(user: { id: string; email?: string | null }): Promi
   );
   if (roles.error) throw new Error(`Couldn't load your roles: ${roles.error.message}`);
   if (profile.error) throw new Error(`Couldn't load your profile: ${profile.error.message}`);
+  if (staff.error) throw new Error(`Couldn't load your staff assignments: ${staff.error.message}`);
   return {
     id: user.id,
     email: profile.data?.email || user.email || "",
@@ -46,10 +47,30 @@ export const meQuery = queryOptions({
   staleTime: 0,
   retry: 1,
   queryFn: async (): Promise<Me | null> => {
-    const { data: s } = await withTimeout(supabase.auth.getSession(), 10000, "Session check");
-    const user = s.session?.user;
-    if (!user) return null;
-    return loadMe(user);
+    try {
+      const { data: s, error: sErr } = await withTimeout(
+        supabase.auth.getSession(),
+        10000,
+        "Session check",
+      );
+      if (sErr) throw sErr;
+      const user = s?.session?.user;
+      if (!user) return null;
+      return await loadMe(user);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+      // If the session token is expired/invalid/missing, treat as logged out rather than unhandled crash
+      if (
+        msg.includes("jwt") ||
+        msg.includes("expired") ||
+        msg.includes("malformed") ||
+        msg.includes("invalid token") ||
+        msg.includes("unauthorized")
+      ) {
+        return null;
+      }
+      throw err;
+    }
   },
 });
 

@@ -78,13 +78,14 @@ function ResetPassword() {
                 id="newpw"
                 type="password"
                 required
+                disabled={busy}
                 minLength={8}
                 value={pw}
                 onChange={(e) => setPw(e.target.value)}
               />
             </div>
-            <Button className="w-full" disabled={busy}>
-              Update password
+            <Button className="w-full" disabled={busy} aria-busy={busy}>
+              {busy ? "Updating…" : "Update password"}
             </Button>
           </form>
         ) : (

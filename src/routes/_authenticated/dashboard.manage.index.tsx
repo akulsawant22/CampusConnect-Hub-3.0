@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,18 +21,20 @@ export const Route = createFileRoute("/_authenticated/dashboard/manage/")({ comp
 
 function Manage() {
   const { data: me } = useMe();
+  const qc = useQueryClient();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const isAdmin = me?.roles.includes("admin");
   const canCreate = isAdmin || me?.roles.includes("organizer");
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["manage-events", me?.id, isAdmin],
     enabled: !!me,
     queryFn: async () => {
       let q = supabase
         .from("events")
         .select("id,title,status,starts_at,capacity,registrations(count)")
-        .order("starts_at", { ascending: false });
+        .order("starts_at", { ascending: false })
+        .limit(200);
       if (!isAdmin) q = q.eq("organizer_id", me!.id);
       const { data, error } = await q;
       if (error) throw error;
@@ -51,6 +53,8 @@ function Manage() {
     },
     onSuccess: (id) => {
       toast.success("Draft created");
+      qc.invalidateQueries({ queryKey: ["manage-events"] });
+      qc.invalidateQueries({ queryKey: ["overview"] });
       setOpen(false);
       navigate({ to: "/dashboard/manage/$eventId", params: { eventId: id } });
     },
@@ -80,6 +84,17 @@ function Manage() {
       />
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : isError ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-destructive/50 bg-destructive/10 p-6 text-center"
+        >
+          <h2 className="font-semibold text-destructive">Failed to load events</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{errMsg(error)}</p>
+          <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
+            Retry
+          </Button>
+        </div>
       ) : !data?.length ? (
         <Empty>No events yet. Create your first one.</Empty>
       ) : (

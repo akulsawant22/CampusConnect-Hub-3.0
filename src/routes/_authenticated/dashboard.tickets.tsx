@@ -36,20 +36,25 @@ function Qr({ token }: { token: string }) {
 function Tickets() {
   const qc = useQueryClient();
   const { data: me } = useMe();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["my-tickets"],
     queryFn: async () => {
       const [regs, tix, att, certs, fb] = await Promise.all([
         supabase
           .from("registrations")
           .select("id,status,event_id,events(title,starts_at,ends_at,venue)")
-          .order("created_at", { ascending: false }),
-        supabase.from("tickets").select("registration_id,token"),
-        supabase.from("attendance").select("registration_id,checked_in_at"),
-        supabase.from("certificates").select("registration_id,serial,issued_at"),
-        supabase.from("feedback").select("event_id"),
+          .order("created_at", { ascending: false })
+          .limit(200),
+        supabase.from("tickets").select("registration_id,token").limit(200),
+        supabase.from("attendance").select("registration_id,checked_in_at").limit(200),
+        supabase.from("certificates").select("registration_id,serial,issued_at").limit(200),
+        supabase.from("feedback").select("event_id").limit(200),
       ]);
       if (regs.error) throw regs.error;
+      if (tix.error) throw tix.error;
+      if (att.error) throw att.error;
+      if (certs.error) throw certs.error;
+      if (fb.error) throw fb.error;
       return {
         regs: regs.data,
         tix: new Map((tix.data ?? []).map((t) => [t.registration_id, t.token])),
@@ -66,7 +71,9 @@ function Tickets() {
     },
     onSuccess: () => {
       toast.success("Registration cancelled");
-      qc.invalidateQueries();
+      qc.invalidateQueries({ queryKey: ["my-tickets"] });
+      qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["browse"] });
     },
     onError: (e) => toast.error(errMsg(e)),
   });
@@ -76,6 +83,17 @@ function Tickets() {
       <PageHeader title="My tickets" sub="Show the QR code at the entrance. Never share it." />
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : isError ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-destructive/50 bg-destructive/10 p-6 text-center"
+        >
+          <h2 className="font-semibold text-destructive">Failed to load tickets</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{errMsg(error)}</p>
+          <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
+            Retry
+          </Button>
+        </div>
       ) : !data?.regs.length ? (
         <Empty>You haven't registered for any events.</Empty>
       ) : (
@@ -179,7 +197,8 @@ function FeedbackDialog({ eventId }: { eventId: string }) {
       toast.success("Thanks for your feedback");
       setOpen(false);
       setErr("");
-      qc.invalidateQueries();
+      qc.invalidateQueries({ queryKey: ["my-tickets"] });
+      qc.invalidateQueries({ queryKey: ["event-admin", eventId] });
     },
     onError: (e) => {
       setErr(errMsg(e));

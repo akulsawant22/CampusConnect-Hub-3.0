@@ -1,11 +1,11 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { loadMe, meQuery } from "@/lib/auth";
-import { postSignInTarget, withTimeout } from "@/lib/auth-flow";
-import { validateEmail, validatePassword, validateSignUp } from "@/lib/validation";
+import { getSafeRedirectPath, postSignInTarget, withTimeout } from "@/lib/auth-flow";
+import { validateEmail, validatePassword, validateSignIn, validateSignUp } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +36,21 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
   const [denied, setDenied] = useState(false);
   const inFlight = useRef(false);
 
+  let searchRedirect: string | undefined;
+  try {
+    const s = useSearch({ strict: false }) as { redirect?: string };
+    searchRedirect = s?.redirect;
+  } catch {
+    // router context not available (e.g. unit tests)
+  }
+
+  const redirectParam =
+    searchRedirect ||
+    (typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("redirect")
+      : null);
+  const safeRedirect = getSafeRedirectPath(redirectParam, "/dashboard");
+
   // `session` comes straight from the sign-in response when available, so we don't
   // re-read storage (each read can wait on the preview's session relay).
   async function enterApp(session?: Session | null) {
@@ -52,7 +67,7 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
     await qc.cancelQueries({ queryKey: ["me"] });
     const me = await loadMe(s.user);
     qc.setQueryData(meQuery.queryKey, me);
-    const decision = postSignInTarget(me.roles, staff);
+    const decision = postSignInTarget(me.roles, staff, safeRedirect);
     if (decision.kind === "denied") {
       setDenied(true);
       setMsg({
@@ -68,13 +83,6 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
     e.preventDefault();
     if (inFlight.current || busy) return;
 
-    // Validate email format
-    const emailErr = validateEmail(email);
-    if (emailErr) {
-      setMsg({ kind: "error", text: emailErr });
-      return;
-    }
-
     if (mode === "signup") {
       const signupErr = validateSignUp({ fullName: name, email, password });
       if (signupErr) {
@@ -82,8 +90,9 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
         return;
       }
     } else {
-      if (!password) {
-        setMsg({ kind: "error", text: "Password is required." });
+      const signinErr = validateSignIn({ email, password });
+      if (signinErr) {
+        setMsg({ kind: "error", text: signinErr });
         return;
       }
     }
@@ -145,9 +154,10 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
     setMsg(null);
     setBusy(true);
     try {
+      const redirectUri = `${window.location.origin}${safeRedirect ? safeRedirect : "/dashboard"}`;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: window.location.origin },
+        options: { redirectTo: redirectUri },
       });
       if (error) throw error;
       // Supabase redirects the browser to the provider when data.url is available.
@@ -226,6 +236,7 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
                     id="name"
                     required
                     maxLength={120}
+                    disabled={busy}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
@@ -238,6 +249,7 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
                   type="email"
                   autoComplete="email"
                   required
+                  disabled={busy}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -250,6 +262,7 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
                   autoComplete={mode === "signup" ? "new-password" : "current-password"}
                   required
                   minLength={8}
+                  disabled={busy}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -268,11 +281,12 @@ export function SignInForm({ variant }: { variant: "member" | "staff" }) {
                     type="button"
                     size="sm"
                     variant="secondary"
+                    disabled={busy}
                     onClick={() => navigate({ to: "/dashboard" })}
                   >
                     Go to my dashboard
                   </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={signOut}>
+                  <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={signOut}>
                     Sign out
                   </Button>
                 </div>
