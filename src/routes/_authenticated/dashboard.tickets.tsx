@@ -230,6 +230,7 @@ function FeedbackDialog({ eventId }: { eventId: string }) {
               size="sm"
               disabled={save.isPending}
               variant={n <= rating ? "default" : "secondary"}
+              aria-label={`${n} of 5 stars`}
               onClick={() => setRating(n)}
             >
               {n}
@@ -239,6 +240,7 @@ function FeedbackDialog({ eventId }: { eventId: string }) {
         <Textarea
           maxLength={2000}
           disabled={save.isPending}
+          aria-label="Feedback comment"
           placeholder="Optional comment (max 2,000 characters)"
           value={comment}
           onChange={(e) => setComment(e.target.value)}

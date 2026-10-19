@@ -20,5 +20,10 @@ jobs:
         run: bunx tsc --noEmit
       - name: Unit tests
         run: bun run test
+      - name: Lint
+        run: bun run lint
       - name: Production build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://mock-project-ref.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'mock-anon-key-for-ci-build-only' }}
         run: bun run build

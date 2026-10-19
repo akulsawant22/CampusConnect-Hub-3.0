@@ -73,7 +73,10 @@ function DashboardLayout() {
             {roleLabel(me.roles)}
           </Badge>
         </div>
-        <nav className="flex flex-row flex-wrap gap-1 md:flex-col">
+        <nav
+          aria-label="Dashboard navigation"
+          className="flex flex-row flex-wrap gap-1 overflow-x-auto py-0.5 md:flex-col md:overflow-visible"
+        >
           {navFor(me.roles, me.volunteerEventCount).map((i) => (
             <Link
               key={i.to}
@@ -104,7 +107,7 @@ function DashboardLayout() {
           </Button>
         </div>
       </aside>
-      <main className="flex-1 p-6 md:p-10">
+      <main className="flex-1 p-4 sm:p-6 md:p-10">
         <Outlet />
       </main>
     </div>

@@ -92,50 +92,93 @@ export function EventForm({
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
-      <label className="block space-y-1.5 sm:col-span-2">
-        <span className="text-sm font-medium">Title</span>
-        <Input required minLength={3} maxLength={160} value={v.title} onChange={set("title")} />
-      </label>
-      <label className="block space-y-1.5 sm:col-span-2">
-        <span className="text-sm font-medium">Description</span>
-        <Textarea rows={4} maxLength={5000} value={v.description} onChange={set("description")} />
-      </label>
-      <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Category</span>
-        <Input maxLength={40} value={v.category} onChange={set("category")} />
-      </label>
-      <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Venue</span>
-        <Input maxLength={160} value={v.venue} onChange={set("venue")} />
-      </label>
-      <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Starts</span>
-        <Input type="datetime-local" required value={v.starts_at} onChange={set("starts_at")} />
-      </label>
-      <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Ends</span>
-        <Input type="datetime-local" required value={v.ends_at} onChange={set("ends_at")} />
-      </label>
-      <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Registration deadline</span>
+    <form onSubmit={submit} noValidate className="grid gap-3 sm:grid-cols-2">
+      <div className="space-y-1.5 sm:col-span-2">
+        <label htmlFor="event-title" className="text-sm font-medium">
+          Title
+        </label>
         <Input
+          id="event-title"
+          required
+          minLength={3}
+          maxLength={160}
+          value={v.title}
+          onChange={set("title")}
+        />
+      </div>
+      <div className="space-y-1.5 sm:col-span-2">
+        <label htmlFor="event-desc" className="text-sm font-medium">
+          Description
+        </label>
+        <Textarea
+          id="event-desc"
+          rows={4}
+          maxLength={5000}
+          value={v.description}
+          onChange={set("description")}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="event-cat" className="text-sm font-medium">
+          Category
+        </label>
+        <Input id="event-cat" maxLength={40} value={v.category} onChange={set("category")} />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="event-venue" className="text-sm font-medium">
+          Venue
+        </label>
+        <Input id="event-venue" maxLength={160} value={v.venue} onChange={set("venue")} />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="event-starts" className="text-sm font-medium">
+          Starts
+        </label>
+        <Input
+          id="event-starts"
+          type="datetime-local"
+          required
+          value={v.starts_at}
+          onChange={set("starts_at")}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="event-ends" className="text-sm font-medium">
+          Ends
+        </label>
+        <Input
+          id="event-ends"
+          type="datetime-local"
+          required
+          value={v.ends_at}
+          onChange={set("ends_at")}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="event-deadline" className="text-sm font-medium">
+          Registration deadline
+        </label>
+        <Input
+          id="event-deadline"
           type="datetime-local"
           required
           value={v.registration_deadline}
           onChange={set("registration_deadline")}
         />
-      </label>
-      <label className="block space-y-1.5">
-        <span className="text-sm font-medium">Capacity</span>
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor="event-capacity" className="text-sm font-medium">
+          Capacity
+        </label>
         <Input
+          id="event-capacity"
           type="number"
           min={Math.max(1, currentRegisteredCount)}
           required
           value={v.capacity}
           onChange={set("capacity")}
         />
-      </label>
+      </div>
       {err && (
         <div
           role="alert"
