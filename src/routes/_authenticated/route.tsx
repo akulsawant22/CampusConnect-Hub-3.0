@@ -1,5 +1,6 @@
 import {
   createFileRoute,
+  isRedirect,
   Link,
   Outlet,
   redirect,
@@ -7,27 +8,76 @@ import {
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { withTimeout } from "@/lib/auth-flow";
+import { getSafeRedirectPath, withTimeout } from "@/lib/auth-flow";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
-    // getSession waits for the stored session to be restored (bounded so it can't hang silently).
-    const { data: s } = await withTimeout(
-      supabase.auth.getSession(),
-      15000,
-      "Restoring your sign-in",
-    );
-    if (!s.session) throw redirect({ to: "/auth" });
-    // Re-validate with the token we already have (avoids a second storage read).
-    const { data, error } = await withTimeout(
-      supabase.auth.getUser(s.session.access_token),
-      15000,
-      "Checking your sign-in",
-    );
-    // Only redirect on a real auth rejection, not on a transient network failure.
-    if (!data.user && (!error || (error.status ?? 0) >= 400)) throw redirect({ to: "/auth" });
+  pendingComponent: () => (
+    <div className="grid min-h-screen place-items-center text-sm text-muted-foreground">
+      Checking authentication…
+    </div>
+  ),
+  beforeLoad: async ({ location }) => {
+    const rawTarget = location.href || location.pathname + (location.searchStr || "");
+    const safeRedirect = getSafeRedirectPath(rawTarget, "/dashboard");
+    const authSearch = safeRedirect ? { redirect: safeRedirect } : {};
+
+    try {
+      // getSession waits for the stored session to be restored (bounded so it can't hang silently).
+      const { data: s, error: sessionErr } = await withTimeout(
+        supabase.auth.getSession(),
+        15000,
+        "Restoring your sign-in",
+      );
+      if (sessionErr || !s?.session) {
+        throw redirect({
+          to: "/auth",
+          search: authSearch,
+        });
+      }
+
+      // Re-validate using getUser() without arguments to trigger Supabase's automatic refresh token logic.
+      const { data, error } = await withTimeout(
+        supabase.auth.getUser(),
+        15000,
+        "Checking your sign-in",
+      );
+
+      // Handle network errors properly: throw error so GateError catches it with a retry button instead of failing open into child routes.
+      if (error) {
+        if ((error.status ?? 0) >= 400) {
+          throw redirect({
+            to: "/auth",
+            search: authSearch,
+          });
+        }
+        throw new Error(error.message || "Network error verifying your session. Please retry.");
+      }
+
+      if (!data?.user) {
+        throw redirect({
+          to: "/auth",
+          search: authSearch,
+        });
+      }
+    } catch (err) {
+      if (isRedirect(err)) throw err;
+      const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+      if (
+        msg.includes("jwt") ||
+        msg.includes("expired") ||
+        msg.includes("malformed") ||
+        msg.includes("invalid token") ||
+        msg.includes("unauthorized")
+      ) {
+        throw redirect({
+          to: "/auth",
+          search: authSearch,
+        });
+      }
+      throw err;
+    }
   },
   errorComponent: GateError,
   component: () => <Outlet />,

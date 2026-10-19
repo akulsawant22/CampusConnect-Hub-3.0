@@ -13,6 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -52,7 +53,7 @@ function Admin() {
 }
 
 function Analytics() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["analytics"],
     queryFn: async () => {
       const [ev, regs, att, certs, users] = await Promise.all([
@@ -61,11 +62,16 @@ function Analytics() {
           .select("id,title,status,starts_at")
           .order("starts_at", { ascending: false })
           .limit(12),
-        supabase.from("registrations").select("event_id").eq("status", "registered"),
-        supabase.from("attendance").select("event_id"),
+        supabase.from("registrations").select("event_id").eq("status", "registered").limit(500),
+        supabase.from("attendance").select("event_id").limit(500),
         supabase.from("certificates").select("id", { count: "exact", head: true }),
         supabase.from("profiles").select("id", { count: "exact", head: true }),
       ]);
+      if (ev.error) throw ev.error;
+      if (regs.error) throw regs.error;
+      if (att.error) throw att.error;
+      if (certs.error) throw certs.error;
+      if (users.error) throw users.error;
       const tally = (rows: { event_id: string }[] | null) =>
         (rows ?? []).reduce<Record<string, number>>(
           (m, r) => ((m[r.event_id] = (m[r.event_id] ?? 0) + 1), m),
@@ -92,7 +98,22 @@ function Analytics() {
       };
     },
   });
-  if (isLoading || !data) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (isError) {
+    return (
+      <div
+        role="alert"
+        className="rounded-xl border border-destructive/50 bg-destructive/10 p-6 text-center"
+      >
+        <h2 className="font-semibold text-destructive">Failed to load analytics</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{errMsg(error)}</p>
+        <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+  if (!data) return null;
   const t = data.totals;
   return (
     <div className="space-y-4">
@@ -133,7 +154,7 @@ function Analytics() {
 function Users({ selfId }: { selfId: string | undefined }) {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
-  const { data } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
       const [p, r] = await Promise.all([
@@ -142,8 +163,10 @@ function Users({ selfId }: { selfId: string | undefined }) {
           .select("id,full_name,email,created_at")
           .order("created_at", { ascending: false })
           .limit(500),
-        supabase.from("user_roles").select("user_id,role"),
+        supabase.from("user_roles").select("user_id,role").limit(1000),
       ]);
+      if (p.error) throw p.error;
+      if (r.error) throw r.error;
       const roles = new Map<string, AppRole[]>();
       (r.data ?? []).forEach((x) =>
         roles.set(x.user_id, [...(roles.get(x.user_id) ?? []), x.role]),
@@ -160,9 +183,27 @@ function Users({ selfId }: { selfId: string | undefined }) {
       });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      qc.invalidateQueries({ queryKey: ["me"] });
+    },
     onError: (e) => toast.error(errMsg(e)),
   });
+  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (isError) {
+    return (
+      <div
+        role="alert"
+        className="rounded-xl border border-destructive/50 bg-destructive/10 p-6 text-center"
+      >
+        <h2 className="font-semibold text-destructive">Failed to load users</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{errMsg(error)}</p>
+        <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
   const list = (data ?? []).filter(
     (u) => !q || `${u.full_name} ${u.email}`.toLowerCase().includes(q.toLowerCase()),
   );
@@ -207,17 +248,33 @@ function Users({ selfId }: { selfId: string | undefined }) {
 }
 
 function Audit() {
-  const { data } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["audit"],
-    queryFn: async () =>
-      (
-        await supabase
-          .from("audit_logs")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(200)
-      ).data ?? [],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("audit_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return data ?? [];
+    },
   });
+  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (isError) {
+    return (
+      <div
+        role="alert"
+        className="rounded-xl border border-destructive/50 bg-destructive/10 p-6 text-center"
+      >
+        <h2 className="font-semibold text-destructive">Failed to load audit logs</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{errMsg(error)}</p>
+        <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
   if (!data?.length) return <Empty>No audit entries yet.</Empty>;
   return (
     <div className="divide-y rounded-xl border bg-card font-mono text-xs">

@@ -40,6 +40,9 @@ function Overview() {
           .select("id", { count: "exact", head: true })
           .is("read_at", null),
       ]);
+      if (r.error) throw r.error;
+      if (c.error) throw c.error;
+      if (n.error) throw n.error;
       return { regs: r.count ?? 0, certs: c.count ?? 0, unread: n.count ?? 0 };
     },
   });

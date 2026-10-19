@@ -27,7 +27,7 @@ function EventAdmin() {
   const navigate = useNavigate();
   const { data: me } = useMe();
   const isAdmin = me?.roles.includes("admin");
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["event-admin", eventId],
     queryFn: async () => {
       const [ev, regs, att, fb, stats] = await Promise.all([
@@ -36,16 +36,22 @@ function EventAdmin() {
           .from("registrations")
           .select("id,status,created_at,user_id,profiles(full_name,email)")
           .eq("event_id", eventId)
-          .order("created_at"),
-        supabase.from("attendance").select("registration_id,checked_in_at"),
+          .order("created_at")
+          .limit(500),
+        supabase.from("attendance").select("registration_id,checked_in_at").eq("event_id", eventId),
         supabase
           .from("feedback")
           .select("rating,comment,created_at")
           .eq("event_id", eventId)
-          .order("created_at", { ascending: false }),
+          .order("created_at", { ascending: false })
+          .limit(200),
         supabase.rpc("event_stats", { _event_id: eventId }),
       ]);
       if (ev.error) throw ev.error;
+      if (regs.error) throw regs.error;
+      if (att.error) throw att.error;
+      if (fb.error) throw fb.error;
+      if (stats.error) throw stats.error;
       return {
         ev: ev.data,
         regs: regs.data ?? [],
@@ -60,7 +66,12 @@ function EventAdmin() {
       };
     },
   });
-  const inv = () => qc.invalidateQueries({ queryKey: ["event-admin", eventId] });
+  const inv = () => {
+    qc.invalidateQueries({ queryKey: ["event-admin", eventId] });
+    qc.invalidateQueries({ queryKey: ["manage-events"] });
+    qc.invalidateQueries({ queryKey: ["browse"] });
+    qc.invalidateQueries({ queryKey: ["overview"] });
+  };
   const update = useMutation({
     mutationFn: async (patch: Partial<EventInput> & { status?: Status }) => {
       const { error } = await supabase.from("events").update(patch).eq("id", eventId);
@@ -77,7 +88,11 @@ function EventAdmin() {
       const { error } = await supabase.from("events").delete().eq("id", eventId);
       if (error) throw error;
     },
-    onSuccess: () => navigate({ to: "/dashboard/manage" }),
+    onSuccess: () => {
+      toast.success("Event deleted");
+      inv();
+      navigate({ to: "/dashboard/manage" });
+    },
     onError: (e) => toast.error(errMsg(e)),
   });
   const certs = useMutation({
@@ -94,6 +109,20 @@ function EventAdmin() {
   });
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (isError) {
+    return (
+      <div
+        role="alert"
+        className="rounded-xl border border-destructive/50 bg-destructive/10 p-6 text-center"
+      >
+        <h2 className="font-semibold text-destructive">Couldn't load event</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{errMsg(error)}</p>
+        <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
   if (!data?.ev) return <Empty>Event not found or you don't have access.</Empty>;
   const ev = data.ev;
   const s = data.stats ?? {};

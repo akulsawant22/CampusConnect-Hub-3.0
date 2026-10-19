@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Empty } from "@/components/PageHeader";
-import { fmtDate } from "@/lib/format";
+import { errMsg, fmtDate } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/dashboard/notifications")({
   component: Notifications,
@@ -24,15 +25,21 @@ export const notificationsQuery = {
 
 function Notifications() {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery(notificationsQuery);
+  const { data, isLoading, isError, error, refetch } = useQuery(notificationsQuery);
   const markAll = useMutation({
     mutationFn: async () => {
-      await supabase
+      const { error } = await supabase
         .from("notifications")
         .update({ read_at: new Date().toISOString() })
         .is("read_at", null);
+      if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => {
+      toast.success("All notifications marked as read");
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+      qc.invalidateQueries({ queryKey: ["overview"] });
+    },
+    onError: (e) => toast.error(errMsg(e)),
   });
   return (
     <div className="max-w-3xl">
@@ -52,6 +59,17 @@ function Notifications() {
       />
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : isError ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-destructive/50 bg-destructive/10 p-6 text-center"
+        >
+          <h2 className="font-semibold text-destructive">Failed to load notifications</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{errMsg(error)}</p>
+          <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
+            Retry
+          </Button>
+        </div>
       ) : !data?.length ? (
         <Empty>No notifications.</Empty>
       ) : (

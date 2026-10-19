@@ -1,26 +1,71 @@
 import { describe, expect, it, vi } from "vitest";
-import { postSignInTarget, withTimeout } from "@/lib/auth-flow";
+import { getSafeRedirectPath, postSignInTarget, withTimeout } from "@/lib/auth-flow";
 
 describe("post sign-in destination", () => {
-  it("member sign-in always goes to /dashboard", () => {
+  it("member sign-in goes to /dashboard by default or to safe redirect", () => {
     expect(postSignInTarget(["student"], false)).toEqual({ kind: "navigate", to: "/dashboard" });
     expect(postSignInTarget(["admin"], false)).toEqual({ kind: "navigate", to: "/dashboard" });
+    expect(postSignInTarget(["student"], false, "/dashboard/events")).toEqual({
+      kind: "navigate",
+      to: "/dashboard/events",
+    });
+    // Unsafe redirects fallback to default
+    expect(postSignInTarget(["student"], false, "https://evil.com")).toEqual({
+      kind: "navigate",
+      to: "/dashboard",
+    });
+    expect(postSignInTarget(["student"], false, "//evil.com")).toEqual({
+      kind: "navigate",
+      to: "/dashboard",
+    });
   });
-  it("staff sign-in sends admins to /dashboard/admin", () => {
+  it("staff sign-in sends admins to /dashboard/admin or safe redirect", () => {
     expect(postSignInTarget(["student", "admin"], true)).toEqual({
       kind: "navigate",
       to: "/dashboard/admin",
     });
+    expect(postSignInTarget(["student", "admin"], true, "/dashboard/manage")).toEqual({
+      kind: "navigate",
+      to: "/dashboard/manage",
+    });
   });
-  it("staff sign-in sends organizers to /dashboard/manage", () => {
+  it("staff sign-in sends organizers to /dashboard/manage or safe redirect", () => {
     expect(postSignInTarget(["organizer"], true)).toEqual({
       kind: "navigate",
       to: "/dashboard/manage",
+    });
+    expect(postSignInTarget(["organizer"], true, "/dashboard/scan/evt-123")).toEqual({
+      kind: "navigate",
+      to: "/dashboard/scan/evt-123",
     });
   });
   it("staff sign-in denies students and accounts with no role", () => {
     expect(postSignInTarget(["student"], true)).toEqual({ kind: "denied" });
     expect(postSignInTarget([], true)).toEqual({ kind: "denied" });
+  });
+});
+
+describe("getSafeRedirectPath", () => {
+  it("accepts valid relative dashboard paths", () => {
+    expect(getSafeRedirectPath("/dashboard")).toBe("/dashboard");
+    expect(getSafeRedirectPath("/dashboard/events")).toBe("/dashboard/events");
+    expect(getSafeRedirectPath("/dashboard/manage?page=2")).toBe("/dashboard/manage?page=2");
+  });
+  it("rejects open redirects and external URLs", () => {
+    expect(getSafeRedirectPath("https://evil.com")).toBeUndefined();
+    expect(getSafeRedirectPath("http://evil.com")).toBeUndefined();
+    expect(getSafeRedirectPath("//evil.com")).toBeUndefined();
+    expect(getSafeRedirectPath("///evil.com")).toBeUndefined();
+    expect(getSafeRedirectPath("javascript:alert(1)")).toBeUndefined();
+  });
+  it("rejects non-relative or non-whitelisted paths", () => {
+    expect(getSafeRedirectPath("foo/bar")).toBeUndefined();
+    expect(getSafeRedirectPath("/../evil")).toBeUndefined();
+    expect(getSafeRedirectPath("/other-site")).toBeUndefined();
+  });
+  it("uses custom default path when provided", () => {
+    expect(getSafeRedirectPath("https://evil.com", "/dashboard/events")).toBe("/dashboard/events");
+    expect(getSafeRedirectPath(undefined, "/dashboard/tickets")).toBe("/dashboard/tickets");
   });
 });
 
