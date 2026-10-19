@@ -155,7 +155,11 @@ export class DatabaseSimulationEngine {
     return ev?.organizerId === userId;
   }
 
-  public staffPerm(userId: string, eventId: string, perm: "scan" | "registrations" | "attendance"): boolean {
+  public staffPerm(
+    userId: string,
+    eventId: string,
+    perm: "scan" | "registrations" | "attendance",
+  ): boolean {
     const staff = Array.from(this.eventStaff.values()).find(
       (s) => s.eventId === eventId && s.userId === userId,
     );
@@ -209,7 +213,9 @@ export class DatabaseSimulationEngine {
         existing.status = "registered";
         existing.cancelledAt = null;
         const newToken = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "");
-        const ticket = Array.from(this.tickets.values()).find((t) => t.registrationId === existing.id);
+        const ticket = Array.from(this.tickets.values()).find(
+          (t) => t.registrationId === existing.id,
+        );
         if (ticket) {
           ticket.token = newToken;
         } else {
@@ -290,7 +296,8 @@ export class DatabaseSimulationEngine {
     name?: string;
   }> {
     if (!callerUserId) throw new Error("Not authenticated");
-    const canScan = this.canManageEvent(callerUserId, eventId) || this.staffPerm(callerUserId, eventId, "scan");
+    const canScan =
+      this.canManageEvent(callerUserId, eventId) || this.staffPerm(callerUserId, eventId, "scan");
     if (!canScan) throw new Error("Not permitted to scan for this event");
 
     const ticket = Array.from(this.tickets.values()).find((t) => t.token === token);
@@ -379,7 +386,8 @@ function createMockClient(engine: DatabaseSimulationEngine, userId: string) {
       }),
     },
     rpc: async (
-      fnName: "register_for_event" | "cancel_registration" | "check_in_ticket" | "issue_certificates",
+      fnName:
+        "register_for_event" | "cancel_registration" | "check_in_ticket" | "issue_certificates",
       params: Record<string, unknown>,
     ) => {
       try {
@@ -426,7 +434,11 @@ describe("Database Concurrency & Stress Scenarios (Offline Simulation)", () => {
     const orgId = "user-org-1";
     const volId = "user-vol-1";
 
-    engine.profiles.set(adminId, { id: adminId, email: "admin@test.local", fullName: "Admin User" });
+    engine.profiles.set(adminId, {
+      id: adminId,
+      email: "admin@test.local",
+      fullName: "Admin User",
+    });
     engine.profiles.set(orgId, { id: orgId, email: "org@test.local", fullName: "Organizer User" });
     engine.profiles.set(volId, { id: volId, email: "vol@test.local", fullName: "Volunteer User" });
 
