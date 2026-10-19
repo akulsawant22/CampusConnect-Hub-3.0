@@ -180,8 +180,8 @@ export class DatabaseSimulationEngine {
 
     // PostgreSQL: SELECT * FROM public.events WHERE id = _event_id FOR UPDATE
     return this.eventLocks.runExclusive(eventId, async () => {
-      // Small randomized delay to simulate genuine async I/O interleaving
-      await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 3) + 1));
+      // Yield to the event queue to simulate genuine async I/O interleaving
+      await Promise.resolve();
 
       const event = this.events.get(eventId);
       if (!event || event.status !== "published") {
@@ -261,7 +261,7 @@ export class DatabaseSimulationEngine {
     if (!callerUserId) throw new Error("Not authenticated");
 
     return this.registrationLocks.runExclusive(registrationId, async () => {
-      await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 3) + 1));
+      await Promise.resolve();
 
       const reg = this.registrations.get(registrationId);
       if (!reg || reg.userId !== callerUserId || reg.status !== "registered") {
@@ -305,7 +305,7 @@ export class DatabaseSimulationEngine {
 
     // Migration 0008 fix: select * into r from public.registrations where id = t.registration_id for update;
     return this.registrationLocks.runExclusive(ticket.registrationId, async () => {
-      await new Promise((r) => setTimeout(r, Math.floor(Math.random() * 3) + 1));
+      await Promise.resolve();
 
       const reg = this.registrations.get(ticket.registrationId);
       if (!reg) return { result: "invalid" };

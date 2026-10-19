@@ -19,11 +19,20 @@ jobs:
       - name: Type check
         run: bunx tsc --noEmit
       - name: Unit tests
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://mock-ci-project.supabase.co' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'mock-publishable-key-for-ci-only' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'mock-anon-key-for-ci-only' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://mock-ci-project.supabase.co' }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || 'mock-publishable-key-for-ci-only' }}
         run: bun run test
       - name: Lint
         run: bun run lint
       - name: Production build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://mock-project-ref.supabase.co' }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'mock-anon-key-for-ci-build-only' }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://mock-ci-project.supabase.co' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'mock-publishable-key-for-ci-only' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'mock-anon-key-for-ci-only' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://mock-ci-project.supabase.co' }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || 'mock-publishable-key-for-ci-only' }}
         run: bun run build

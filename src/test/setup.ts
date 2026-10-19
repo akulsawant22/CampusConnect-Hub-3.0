@@ -18,3 +18,9 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: () => {},
   }),
 });
+
+// Fallback mock Supabase credentials for CI environments without a local .env file
+process.env["VITE_SUPABASE_URL"] ??= "https://mock-ci-project.supabase.co";
+process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ??= "mock-publishable-key-for-tests";
+process.env["SUPABASE_URL"] ??= "https://mock-ci-project.supabase.co";
+process.env["SUPABASE_PUBLISHABLE_KEY"] ??= "mock-publishable-key-for-tests";
