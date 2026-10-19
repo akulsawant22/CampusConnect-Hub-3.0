@@ -64,6 +64,13 @@
       "when": 1791922600000,
       "tag": "0008_fix_concurrency_race_and_security_tightening",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791923000000,
+      "tag": "0009_schema_constraints_and_validation",
+      "breakpoints": true
     }
   ]
 }

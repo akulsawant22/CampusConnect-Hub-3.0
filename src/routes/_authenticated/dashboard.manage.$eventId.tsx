@@ -112,7 +112,11 @@ function EventAdmin() {
               {ev.status}
             </Badge>
             {ev.status === "draft" && (
-              <Button size="sm" onClick={() => update.mutate({ status: "published" })}>
+              <Button
+                size="sm"
+                disabled={update.isPending}
+                onClick={() => update.mutate({ status: "published" })}
+              >
                 Publish
               </Button>
             )}
@@ -120,6 +124,7 @@ function EventAdmin() {
               <Button
                 size="sm"
                 variant="secondary"
+                disabled={update.isPending}
                 onClick={() => update.mutate({ status: "completed" })}
               >
                 Mark completed
@@ -129,13 +134,19 @@ function EventAdmin() {
               <Button
                 size="sm"
                 variant="ghost"
+                disabled={update.isPending}
                 onClick={() => update.mutate({ status: "cancelled" })}
               >
                 Cancel event
               </Button>
             )}
             {ev.status === "draft" && (
-              <Button size="sm" variant="ghost" onClick={() => del.mutate()}>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={del.isPending}
+                onClick={() => del.mutate()}
+              >
                 Delete
               </Button>
             )}
@@ -197,7 +208,12 @@ function EventAdmin() {
           <div className="mb-5">
             <CoverUploader eventId={eventId} path={ev.cover_url} />
           </div>
-          <EventForm initial={ev} busy={update.isPending} onSubmit={(v) => update.mutate(v)} />
+          <EventForm
+            initial={ev}
+            busy={update.isPending}
+            currentRegisteredCount={data.regs.filter((r) => r.status === "registered").length}
+            onSubmit={(v) => update.mutate(v)}
+          />
         </TabsContent>
         <TabsContent value="volunteers" className="mt-4">
           <Volunteers eventId={eventId} isAdmin={!!isAdmin} />
@@ -331,7 +347,12 @@ function Volunteers({ eventId, isAdmin }: { eventId: string; isAdmin: boolean })
                     .join(" · ")}
                 </span>
                 {isAdmin && (
-                  <Button size="sm" variant="ghost" onClick={() => remove.mutate(s.user_id)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={remove.isPending}
+                    onClick={() => remove.mutate(s.user_id)}
+                  >
                     Remove
                   </Button>
                 )}

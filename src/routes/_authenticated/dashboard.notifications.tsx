@@ -39,8 +39,14 @@ function Notifications() {
       <PageHeader
         title="Notifications"
         action={
-          <Button size="sm" variant="secondary" onClick={() => markAll.mutate()}>
-            Mark all read
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={markAll.isPending || !data?.some((n) => !n.read_at)}
+            aria-busy={markAll.isPending}
+            onClick={() => markAll.mutate()}
+          >
+            {markAll.isPending ? "Marking…" : "Mark all read"}
           </Button>
         }
       />

@@ -789,4 +789,145 @@ describe("Database Concurrency & Stress Scenarios (Offline Simulation)", () => {
     });
     expect((newScan.data as { result: string })?.result).toBe("ok");
   });
+
+  it("Capacity of 1 boundary condition: 10 competing students -> exactly 1 succeeds, 9 fail with 'Event is full'", async () => {
+    const { engine, orgId, studentIds } = setupSimulationEnvironment();
+    const eventId = "event-capacity-1";
+
+    engine.events.set(eventId, {
+      id: eventId,
+      organizerId: orgId,
+      title: "Solo Workshop",
+      startsAt: new Date(Date.now() + 86400000).toISOString(),
+      endsAt: new Date(Date.now() + 2 * 86400000).toISOString(),
+      registrationDeadline: new Date(Date.now() + 43200000).toISOString(),
+      capacity: 1,
+      status: "published",
+    });
+
+    const competingStudents = studentIds.slice(0, 10);
+    const clients = competingStudents.map((sId) => createMockClient(engine, sId));
+
+    const registrationPromises = clients.map((client) =>
+      client.rpc("register_for_event", { _event_id: eventId }),
+    );
+
+    const outcomes = await Promise.all(registrationPromises);
+
+    const successfulRegistrations = outcomes.filter((res) => !res.error && res.data);
+    const fullErrors = outcomes.filter((res) => res.error?.message.includes("Event is full"));
+
+    expect(successfulRegistrations).toHaveLength(1);
+    expect(fullErrors).toHaveLength(9);
+
+    const activeDbRegistrations = Array.from(engine.registrations.values()).filter(
+      (r) => r.eventId === eventId && r.status === "registered",
+    );
+    expect(activeDbRegistrations).toHaveLength(1);
+  });
+
+  it("Concurrent cancellation and registration race: seat released and claimed without invariant violation", async () => {
+    const { engine, orgId, studentIds } = setupSimulationEnvironment();
+    const eventId = "event-cancel-race";
+    const initialStudentId = studentIds[0]!;
+
+    engine.events.set(eventId, {
+      id: eventId,
+      organizerId: orgId,
+      title: "Hot Seat Event",
+      startsAt: new Date(Date.now() + 86400000).toISOString(),
+      endsAt: new Date(Date.now() + 2 * 86400000).toISOString(),
+      registrationDeadline: new Date(Date.now() + 43200000).toISOString(),
+      capacity: 1,
+      status: "published",
+    });
+
+    // Student 1 registers first
+    const client1 = createMockClient(engine, initialStudentId);
+    const regRes1 = await client1.rpc("register_for_event", { _event_id: eventId });
+    expect(regRes1.error).toBeNull();
+    const reg1Id = regRes1.data as string;
+
+    // Concurrently: Student 1 cancels, while Students 2, 3, 4 race to register
+    const competingClients = [
+      createMockClient(engine, studentIds[1]!),
+      createMockClient(engine, studentIds[2]!),
+      createMockClient(engine, studentIds[3]!),
+    ];
+
+    const [cancelOutcome, ...registerOutcomes] = await Promise.all([
+      client1.rpc("cancel_registration", { _registration_id: reg1Id }),
+      ...competingClients.map((c) => c.rpc("register_for_event", { _event_id: eventId })),
+    ]);
+
+    expect(cancelOutcome.error).toBeNull();
+
+    // Out of the 3 competing students, at least 1 must have obtained the seat if they evaluated after cancellation,
+    // and under no circumstance should more than 1 have registered!
+    const successfulClaims = registerOutcomes.filter((r) => !r.error && r.data);
+    const fullRejections = registerOutcomes.filter((r) =>
+      r.error?.message.includes("Event is full"),
+    );
+
+    expect(successfulClaims.length).toBeLessThanOrEqual(1);
+    expect(successfulClaims.length + fullRejections.length).toBe(3);
+
+    // Active registered seats in DB must be exactly the number of successful claims (<= 1)
+    const activeDbRegistrations = Array.from(engine.registrations.values()).filter(
+      (r) => r.eventId === eventId && r.status === "registered",
+    );
+    expect(activeDbRegistrations.length).toBe(successfulClaims.length);
+  });
+
+  it("Registration validation: deadline passed, non-published statuses, and role authorization strictly enforced", async () => {
+    const { engine, orgId, adminId, studentIds } = setupSimulationEnvironment();
+    const studentId = studentIds[4]!;
+    const studentClient = createMockClient(engine, studentId);
+
+    // 1. Expired deadline
+    const expiredEventId = "event-expired";
+    engine.events.set(expiredEventId, {
+      id: expiredEventId,
+      organizerId: orgId,
+      title: "Expired Event",
+      startsAt: new Date(Date.now() + 86400000).toISOString(),
+      endsAt: new Date(Date.now() + 2 * 86400000).toISOString(),
+      registrationDeadline: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+      capacity: 10,
+      status: "published",
+    });
+    const expiredRes = await studentClient.rpc("register_for_event", { _event_id: expiredEventId });
+    expect(expiredRes.error?.message).toContain("Registration deadline has passed");
+
+    // 2. Draft / Cancelled status
+    const draftEventId = "event-draft";
+    engine.events.set(draftEventId, {
+      id: draftEventId,
+      organizerId: orgId,
+      title: "Draft Event",
+      startsAt: new Date(Date.now() + 86400000).toISOString(),
+      endsAt: new Date(Date.now() + 2 * 86400000).toISOString(),
+      registrationDeadline: new Date(Date.now() + 43200000).toISOString(),
+      capacity: 10,
+      status: "draft",
+    });
+    const draftRes = await studentClient.rpc("register_for_event", { _event_id: draftEventId });
+    expect(draftRes.error?.message).toContain("Event not open for registration");
+
+    // 3. Non-student caller (e.g. admin or organizer who does not have student role)
+    const adminClient = createMockClient(engine, adminId);
+    const validEventId = "event-valid";
+    engine.events.set(validEventId, {
+      id: validEventId,
+      organizerId: orgId,
+      title: "Open Event",
+      startsAt: new Date(Date.now() + 86400000).toISOString(),
+      endsAt: new Date(Date.now() + 2 * 86400000).toISOString(),
+      registrationDeadline: new Date(Date.now() + 43200000).toISOString(),
+      capacity: 10,
+      status: "published",
+    });
+    const nonStudentRes = await adminClient.rpc("register_for_event", { _event_id: validEventId });
+    expect(nonStudentRes.error?.message).toContain("Only students can register");
+  });
 });

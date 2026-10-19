@@ -9,7 +9,7 @@ declare
   s1 uuid := gen_random_uuid();
   s2 uuid := gen_random_uuid();
   s3 uuid := gen_random_uuid();
-  ev uuid; reg1 uuid; reg2 uuid; tok text; tok2 text; res jsonb; n int; ok boolean; passed text[] := '{}';
+  ev uuid; reg1 uuid; reg2 uuid; tok text; tok2 text; new_tok text; res jsonb; n int; ok boolean; passed text[] := '{}';
 begin
   insert into auth.users (id, email, instance_id, aud, role) values
     (admin_id,'t-admin@test.local','00000000-0000-0000-0000-000000000000','authenticated','authenticated'),
@@ -197,6 +197,50 @@ begin
   res := public.check_in_ticket(ev, tok2);
   if res->>'result' <> 'cancelled' then raise exception 'FAIL: cancelled ticket was not rejected with cancelled: %', res; end if;
   passed := passed || 'cancelled_ticket_rejected'::text;
+
+  -- 13. Certificate issuance authorization & attendee privacy
+  -- Student s1 and volunteer s3 cannot issue certificates
+  perform set_config('request.jwt.claims', json_build_object('sub',s1,'role','authenticated')::text, true);
+  ok := false; begin perform public.issue_certificates(ev); exception when others then ok := true; end;
+  if not ok then raise exception 'FAIL: student issued certificates'; end if;
+  passed := passed || 'student_cannot_issue_certificates'::text;
+
+  perform set_config('request.jwt.claims', json_build_object('sub',s3,'role','authenticated')::text, true);
+  ok := false; begin perform public.issue_certificates(ev); exception when others then ok := true; end;
+  if not ok then raise exception 'FAIL: volunteer issued certificates'; end if;
+  passed := passed || 'volunteer_cannot_issue_certificates'::text;
+
+  -- Organizer CAN issue certificates for checked-in attendees (s1 attended)
+  perform set_config('request.jwt.claims', json_build_object('sub',org_id,'role','authenticated')::text, true);
+  n := public.issue_certificates(ev);
+  if n <> 1 then raise exception 'FAIL: organizer issued certificates count %', n; end if;
+  passed := passed || 'organizer_can_issue_certificates'::text;
+
+  -- Certificates privacy: attendee s1 can read their certificate, s3 cannot
+  perform set_config('request.jwt.claims', json_build_object('sub',s1,'role','authenticated')::text, true);
+  execute 'set local role authenticated';
+  if (select count(*) from public.certificates where event_id = ev) <> 1 then raise exception 'FAIL: attendee cannot see certificate'; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub',s3,'role','authenticated')::text, true);
+  if (select count(*) from public.certificates where event_id = ev) <> 0 then raise exception 'FAIL: non-attendee saw certificates'; end if;
+  execute 'reset role';
+  passed := passed || 'certificates_restricted_to_attendees'::text;
+
+  -- 14. Re-registration after cancellation rotates token and permits check-in
+  update public.events set registration_deadline = now() + interval '1 day' where id = ev;
+  perform set_config('request.jwt.claims', json_build_object('sub',s2,'role','authenticated')::text, true);
+  reg2 := public.register_for_event(ev);
+  select token into new_tok from public.tickets where registration_id = reg2;
+  if new_tok is null or new_tok = tok2 then raise exception 'FAIL: ticket token was not rotated upon re-registration'; end if;
+
+  -- Old token cannot be used
+  perform set_config('request.jwt.claims', json_build_object('sub',s3,'role','authenticated')::text, true);
+  res := public.check_in_ticket(ev, tok2);
+  if res->>'result' <> 'invalid' and res->>'result' <> 'cancelled' then raise exception 'FAIL: old token check-in unexpected result: %', res; end if;
+
+  -- New token succeeds
+  res := public.check_in_ticket(ev, new_tok);
+  if res->>'result' <> 'ok' then raise exception 'FAIL: new token check-in failed: %', res; end if;
+  passed := passed || 're_registration_token_rotation'::text;
 
   raise exception 'ALL TESTS PASSED (% tests): %', array_length(passed,1), array_to_string(passed, ', ');
 end $$;

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { fromLocalInput, toLocalInput } from "@/lib/format";
+import { validateEventInput } from "@/lib/validation";
 import type { Database } from "@/integrations/supabase/types";
 
 type Ev = Database["public"]["Tables"]["events"]["Row"];
@@ -22,10 +23,12 @@ export function EventForm({
   initial,
   onSubmit,
   busy,
+  currentRegisteredCount = 0,
 }: {
   initial?: Partial<Ev>;
   onSubmit: (v: EventInput) => void;
   busy?: boolean;
+  currentRegisteredCount?: number;
 }) {
   const [v, setV] = useState({
     title: initial?.title ?? "",
@@ -44,22 +47,47 @@ export function EventForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
+
+    if (!v.starts_at || !v.ends_at || !v.registration_deadline) {
+      setErr("Start date, end date, and registration deadline are all required");
+      return;
+    }
+
+    const startsIso = fromLocalInput(v.starts_at);
+    const endsIso = fromLocalInput(v.ends_at);
+    const deadlineIso = fromLocalInput(v.registration_deadline);
     const cap = Number(v.capacity);
-    if (!(cap > 0 && cap <= 100000 && Number.isInteger(cap)))
-      return setErr("Capacity must be a whole number above 0");
-    if (new Date(v.ends_at) <= new Date(v.starts_at)) return setErr("End must be after start");
-    if (new Date(v.registration_deadline) > new Date(v.ends_at))
-      return setErr("Deadline must be before the event ends");
+
+    const validation = validateEventInput(
+      {
+        title: v.title,
+        description: v.description,
+        category: v.category || "general",
+        venue: v.venue,
+        starts_at: startsIso,
+        ends_at: endsIso,
+        registration_deadline: deadlineIso,
+        capacity: cap,
+      },
+      currentRegisteredCount,
+    );
+
+    if (!validation.success) {
+      setErr(validation.error || "Please check the form for errors");
+      return;
+    }
+
     setErr("");
     onSubmit({
-      title: v.title.trim(),
-      description: v.description.trim(),
-      category: v.category.trim() || "general",
-      venue: v.venue.trim(),
-      starts_at: fromLocalInput(v.starts_at),
-      ends_at: fromLocalInput(v.ends_at),
-      registration_deadline: fromLocalInput(v.registration_deadline),
-      capacity: cap,
+      title: validation.data!.title,
+      description: validation.data!.description,
+      category: validation.data!.category,
+      venue: validation.data!.venue,
+      starts_at: validation.data!.starts_at,
+      ends_at: validation.data!.ends_at,
+      registration_deadline: validation.data!.registration_deadline,
+      capacity: validation.data!.capacity,
     });
   }
 
@@ -100,11 +128,26 @@ export function EventForm({
       </label>
       <label className="block space-y-1.5">
         <span className="text-sm font-medium">Capacity</span>
-        <Input type="number" min={1} required value={v.capacity} onChange={set("capacity")} />
+        <Input
+          type="number"
+          min={Math.max(1, currentRegisteredCount)}
+          required
+          value={v.capacity}
+          onChange={set("capacity")}
+        />
       </label>
-      {err && <p className="text-sm text-destructive sm:col-span-2">{err}</p>}
+      {err && (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/50 bg-destructive/10 p-2.5 text-sm text-destructive sm:col-span-2"
+        >
+          {err}
+        </div>
+      )}
       <div className="sm:col-span-2">
-        <Button disabled={busy}>Save</Button>
+        <Button disabled={busy} aria-busy={busy}>
+          {busy ? "Saving…" : "Save"}
+        </Button>
       </div>
     </form>
   );
