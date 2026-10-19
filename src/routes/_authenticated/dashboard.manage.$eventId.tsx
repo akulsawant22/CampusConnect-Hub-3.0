@@ -17,7 +17,9 @@ import type { Database } from "@/integrations/supabase/types";
 
 type Status = Database["public"]["Enums"]["event_status"];
 
-export const Route = createFileRoute("/_authenticated/dashboard/manage/$eventId")({ component: EventAdmin });
+export const Route = createFileRoute("/_authenticated/dashboard/manage/$eventId")({
+  component: EventAdmin,
+});
 
 function EventAdmin() {
   const { eventId } = Route.useParams();
@@ -30,27 +32,65 @@ function EventAdmin() {
     queryFn: async () => {
       const [ev, regs, att, fb, stats] = await Promise.all([
         supabase.from("events").select("*").eq("id", eventId).maybeSingle(),
-        supabase.from("registrations").select("id,status,created_at,user_id,profiles(full_name,email)").eq("event_id", eventId).order("created_at"),
+        supabase
+          .from("registrations")
+          .select("id,status,created_at,user_id,profiles(full_name,email)")
+          .eq("event_id", eventId)
+          .order("created_at"),
         supabase.from("attendance").select("registration_id,checked_in_at"),
-        supabase.from("feedback").select("rating,comment,created_at").eq("event_id", eventId).order("created_at", { ascending: false }),
+        supabase
+          .from("feedback")
+          .select("rating,comment,created_at")
+          .eq("event_id", eventId)
+          .order("created_at", { ascending: false }),
         supabase.rpc("event_stats", { _event_id: eventId }),
       ]);
       if (ev.error) throw ev.error;
-      return { ev: ev.data, regs: regs.data ?? [], att: new Map((att.data ?? []).map((a) => [a.registration_id, a.checked_in_at])), fb: fb.data ?? [], stats: stats.data as { registered?: number; attended?: number; certificates?: number; avg_rating?: number | null } | null };
+      return {
+        ev: ev.data,
+        regs: regs.data ?? [],
+        att: new Map((att.data ?? []).map((a) => [a.registration_id, a.checked_in_at])),
+        fb: fb.data ?? [],
+        stats: stats.data as {
+          registered?: number;
+          attended?: number;
+          certificates?: number;
+          avg_rating?: number | null;
+        } | null,
+      };
     },
   });
   const inv = () => qc.invalidateQueries({ queryKey: ["event-admin", eventId] });
   const update = useMutation({
-    mutationFn: async (patch: Partial<EventInput> & { status?: Status }) => { const { error } = await supabase.from("events").update(patch).eq("id", eventId); if (error) throw error; },
-    onSuccess: () => { toast.success("Saved"); inv(); }, onError: (e) => toast.error(errMsg(e)),
+    mutationFn: async (patch: Partial<EventInput> & { status?: Status }) => {
+      const { error } = await supabase.from("events").update(patch).eq("id", eventId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Saved");
+      inv();
+    },
+    onError: (e) => toast.error(errMsg(e)),
   });
   const del = useMutation({
-    mutationFn: async () => { const { error } = await supabase.from("events").delete().eq("id", eventId); if (error) throw error; },
-    onSuccess: () => navigate({ to: "/dashboard/manage" }), onError: (e) => toast.error(errMsg(e)),
+    mutationFn: async () => {
+      const { error } = await supabase.from("events").delete().eq("id", eventId);
+      if (error) throw error;
+    },
+    onSuccess: () => navigate({ to: "/dashboard/manage" }),
+    onError: (e) => toast.error(errMsg(e)),
   });
   const certs = useMutation({
-    mutationFn: async () => { const { data, error } = await supabase.rpc("issue_certificates", { _event_id: eventId }); if (error) throw error; return data; },
-    onSuccess: (n) => { toast.success(`${n} new certificate(s) issued`); inv(); }, onError: (e) => toast.error(errMsg(e)),
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("issue_certificates", { _event_id: eventId });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (n) => {
+      toast.success(`${n} new certificate(s) issued`);
+      inv();
+    },
+    onError: (e) => toast.error(errMsg(e)),
   });
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
@@ -60,15 +100,48 @@ function EventAdmin() {
 
   return (
     <div className="max-w-5xl">
-      <Link to="/dashboard/manage" className="text-xs text-muted-foreground hover:text-foreground">← Events</Link>
-      <PageHeader title={ev.title} sub={`${fmtDate(ev.starts_at)} · ${ev.venue}`} action={
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className="capitalize">{ev.status}</Badge>
-          {ev.status === "draft" && <Button size="sm" onClick={() => update.mutate({ status: "published" })}>Publish</Button>}
-          {ev.status === "published" && <Button size="sm" variant="secondary" onClick={() => update.mutate({ status: "completed" })}>Mark completed</Button>}
-          {ev.status !== "cancelled" && ev.status !== "completed" && <Button size="sm" variant="ghost" onClick={() => update.mutate({ status: "cancelled" })}>Cancel event</Button>}
-          {ev.status === "draft" && <Button size="sm" variant="ghost" onClick={() => del.mutate()}>Delete</Button>}
-        </div>} />
+      <Link to="/dashboard/manage" className="text-xs text-muted-foreground hover:text-foreground">
+        ← Events
+      </Link>
+      <PageHeader
+        title={ev.title}
+        sub={`${fmtDate(ev.starts_at)} · ${ev.venue}`}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="capitalize">
+              {ev.status}
+            </Badge>
+            {ev.status === "draft" && (
+              <Button size="sm" onClick={() => update.mutate({ status: "published" })}>
+                Publish
+              </Button>
+            )}
+            {ev.status === "published" && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => update.mutate({ status: "completed" })}
+              >
+                Mark completed
+              </Button>
+            )}
+            {ev.status !== "cancelled" && ev.status !== "completed" && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => update.mutate({ status: "cancelled" })}
+              >
+                Cancel event
+              </Button>
+            )}
+            {ev.status === "draft" && (
+              <Button size="sm" variant="ghost" onClick={() => del.mutate()}>
+                Delete
+              </Button>
+            )}
+          </div>
+        }
+      />
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Registered" value={`${s.registered ?? 0}/${ev.capacity}`} />
         <Stat label="Checked in" value={s.attended ?? 0} />
@@ -84,29 +157,62 @@ function EventAdmin() {
         </TabsList>
         <TabsContent value="people" className="mt-4 space-y-3">
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" asChild><Link to="/dashboard/scan/$eventId" params={{ eventId }}>Open scanner</Link></Button>
-            <Button size="sm" variant="secondary" disabled={certs.isPending} onClick={() => certs.mutate()}>Issue certificates to attendees</Button>
+            <Button size="sm" variant="secondary" asChild>
+              <Link to="/dashboard/scan/$eventId" params={{ eventId }}>
+                Open scanner
+              </Link>
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={certs.isPending}
+              onClick={() => certs.mutate()}
+            >
+              Issue certificates to attendees
+            </Button>
           </div>
-          {!data.regs.length ? <Empty>No registrations yet.</Empty> : (
+          {!data.regs.length ? (
+            <Empty>No registrations yet.</Empty>
+          ) : (
             <div className="divide-y rounded-xl border bg-card">
               {data.regs.map((r) => (
                 <div key={r.id} className="flex items-center justify-between p-3 text-sm">
-                  <div><div>{r.profiles?.full_name || "—"}</div><div className="text-xs text-muted-foreground">{r.profiles?.email}</div></div>
-                  {r.status === "cancelled" ? <Badge variant="outline">Cancelled</Badge> : data.att.get(r.id) ? <Badge>In · {new Date(data.att.get(r.id)!).toLocaleTimeString()}</Badge> : <Badge variant="secondary">Registered</Badge>}
+                  <div>
+                    <div>{r.profiles?.full_name || "—"}</div>
+                    <div className="text-xs text-muted-foreground">{r.profiles?.email}</div>
+                  </div>
+                  {r.status === "cancelled" ? (
+                    <Badge variant="outline">Cancelled</Badge>
+                  ) : data.att.get(r.id) ? (
+                    <Badge>In · {new Date(data.att.get(r.id)!).toLocaleTimeString()}</Badge>
+                  ) : (
+                    <Badge variant="secondary">Registered</Badge>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </TabsContent>
         <TabsContent value="details" className="mt-4 rounded-xl border bg-card p-5">
-          <div className="mb-5"><CoverUploader eventId={eventId} path={ev.cover_url} /></div>
+          <div className="mb-5">
+            <CoverUploader eventId={eventId} path={ev.cover_url} />
+          </div>
           <EventForm initial={ev} busy={update.isPending} onSubmit={(v) => update.mutate(v)} />
         </TabsContent>
-        <TabsContent value="volunteers" className="mt-4"><Volunteers eventId={eventId} isAdmin={!!isAdmin} /></TabsContent>
+        <TabsContent value="volunteers" className="mt-4">
+          <Volunteers eventId={eventId} isAdmin={!!isAdmin} />
+        </TabsContent>
         <TabsContent value="feedback" className="mt-4">
-          {!data.fb.length ? <Empty>No feedback yet.</Empty> : (
+          {!data.fb.length ? (
+            <Empty>No feedback yet.</Empty>
+          ) : (
             <div className="divide-y rounded-xl border bg-card">
-              {data.fb.map((f, i) => <div key={i} className="p-3 text-sm"><span className="font-mono text-primary">{f.rating}/5</span> <span className="text-muted-foreground">{f.comment}</span></div>)}
+              {data.fb.map((f, i) => (
+                <div key={i} className="p-3 text-sm">
+                  <span className="font-mono text-primary">{f.rating}/5</span>{" "}
+                  <span className="text-muted-foreground">{f.comment}</span>
+                </div>
+              ))}
             </div>
           )}
         </TabsContent>
@@ -122,44 +228,113 @@ function Volunteers({ eventId, isAdmin }: { eventId: string; isAdmin: boolean })
   const { data: staff } = useQuery({
     queryKey: ["staff", eventId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_staff").select("user_id,can_scan,can_view_registrations,can_view_attendance,profiles!event_staff_user_id_fkey(full_name,email)").eq("event_id", eventId);
+      const { data, error } = await supabase
+        .from("event_staff")
+        .select(
+          "user_id,can_scan,can_view_registrations,can_view_attendance,profiles!event_staff_user_id_fkey(full_name,email)",
+        )
+        .eq("event_id", eventId);
       if (error) throw error;
       return data;
     },
   });
   const assign = useMutation({
     mutationFn: async () => {
-      const { data: p } = await supabase.from("profiles").select("id").ilike("email", email.trim()).maybeSingle();
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("id")
+        .ilike("email", email.trim())
+        .maybeSingle();
       if (!p) throw new Error("No user with that email");
-      const { error } = await supabase.rpc("assign_volunteer", { _event_id: eventId, _user_id: p.id, _can_scan: perm.scan, _can_view_registrations: perm.regs, _can_view_attendance: perm.att });
+      const { error } = await supabase.rpc("assign_volunteer", {
+        _event_id: eventId,
+        _user_id: p.id,
+        _can_scan: perm.scan,
+        _can_view_registrations: perm.regs,
+        _can_view_attendance: perm.att,
+      });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Volunteer assigned"); setEmail(""); qc.invalidateQueries({ queryKey: ["staff", eventId] }); },
+    onSuccess: () => {
+      toast.success("Volunteer assigned");
+      setEmail("");
+      qc.invalidateQueries({ queryKey: ["staff", eventId] });
+    },
     onError: (e) => toast.error(errMsg(e)),
   });
   const remove = useMutation({
-    mutationFn: async (uid: string) => { const { error } = await supabase.rpc("remove_volunteer", { _event_id: eventId, _user_id: uid }); if (error) throw error; },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["staff", eventId] }), onError: (e) => toast.error(errMsg(e)),
+    mutationFn: async (uid: string) => {
+      const { error } = await supabase.rpc("remove_volunteer", {
+        _event_id: eventId,
+        _user_id: uid,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["staff", eventId] }),
+    onError: (e) => toast.error(errMsg(e)),
   });
   return (
     <div className="space-y-4">
       {isAdmin ? (
-        <form className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4" onSubmit={(e) => { e.preventDefault(); assign.mutate(); }}>
-          <Input className="max-w-xs" type="email" required placeholder="Student email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          {([["scan", "Scan tickets"], ["regs", "View registrations"], ["att", "View attendance"]] as const).map(([k, l]) => (
-            <label key={k} className="flex items-center gap-2 text-sm"><Checkbox checked={perm[k]} onCheckedChange={(c) => setPerm({ ...perm, [k]: !!c })} />{l}</label>
+        <form
+          className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            assign.mutate();
+          }}
+        >
+          <Input
+            className="max-w-xs"
+            type="email"
+            required
+            placeholder="Student email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          {(
+            [
+              ["scan", "Scan tickets"],
+              ["regs", "View registrations"],
+              ["att", "View attendance"],
+            ] as const
+          ).map(([k, l]) => (
+            <label key={k} className="flex items-center gap-2 text-sm">
+              <Checkbox checked={perm[k]} onCheckedChange={(c) => setPerm({ ...perm, [k]: !!c })} />
+              {l}
+            </label>
           ))}
-          <Button size="sm" disabled={assign.isPending}>Assign</Button>
+          <Button size="sm" disabled={assign.isPending}>
+            Assign
+          </Button>
         </form>
-      ) : <p className="text-sm text-muted-foreground">Only admins can assign volunteers.</p>}
-      {!staff?.length ? <Empty>No volunteers assigned.</Empty> : (
+      ) : (
+        <p className="text-sm text-muted-foreground">Only admins can assign volunteers.</p>
+      )}
+      {!staff?.length ? (
+        <Empty>No volunteers assigned.</Empty>
+      ) : (
         <div className="divide-y rounded-xl border bg-card">
           {staff.map((s) => (
             <div key={s.user_id} className="flex items-center justify-between p-3 text-sm">
-              <div><div>{s.profiles?.full_name || "—"}</div><div className="text-xs text-muted-foreground">{s.profiles?.email}</div></div>
+              <div>
+                <div>{s.profiles?.full_name || "—"}</div>
+                <div className="text-xs text-muted-foreground">{s.profiles?.email}</div>
+              </div>
               <div className="flex items-center gap-3">
-                <span className="font-mono text-xs text-muted-foreground">{[s.can_scan && "scan", s.can_view_registrations && "registrations", s.can_view_attendance && "attendance"].filter(Boolean).join(" · ")}</span>
-                {isAdmin && <Button size="sm" variant="ghost" onClick={() => remove.mutate(s.user_id)}>Remove</Button>}
+                <span className="font-mono text-xs text-muted-foreground">
+                  {[
+                    s.can_scan && "scan",
+                    s.can_view_registrations && "registrations",
+                    s.can_view_attendance && "attendance",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+                {isAdmin && (
+                  <Button size="sm" variant="ghost" onClick={() => remove.mutate(s.user_id)}>
+                    Remove
+                  </Button>
+                )}
               </div>
             </div>
           ))}

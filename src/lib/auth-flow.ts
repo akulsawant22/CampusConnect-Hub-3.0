@@ -7,7 +7,10 @@ export function withTimeout<T>(p: PromiseLike<T>, ms: number, what: string): Pro
   return Promise.race([
     Promise.resolve(p),
     new Promise<T>((_, rej) => {
-      timer = setTimeout(() => rej(new Error(`${what} timed out. Check your connection and retry.`)), ms);
+      timer = setTimeout(
+        () => rej(new Error(`${what} timed out. Check your connection and retry.`)),
+        ms,
+      );
     }),
   ]).finally(() => clearTimeout(timer));
 }
@@ -20,5 +23,8 @@ export type SignInDecision =
 export function postSignInTarget(roles: readonly string[], staff: boolean): SignInDecision {
   if (!staff) return { kind: "navigate", to: "/dashboard" };
   if (!isStaff(roles)) return { kind: "denied" };
-  return { kind: "navigate", to: roles.includes("admin") ? "/dashboard/admin" : "/dashboard/manage" };
+  return {
+    kind: "navigate",
+    to: roles.includes("admin") ? "/dashboard/admin" : "/dashboard/manage",
+  };
 }

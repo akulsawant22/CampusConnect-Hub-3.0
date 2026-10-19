@@ -1,7 +1,11 @@
 // Pure, testable role → navigation decisions. UI-only: every action is re-checked in the database.
 export type Role = "admin" | "organizer" | "student";
 
-export interface NavItem { to: string; label: string; exact?: boolean }
+export interface NavItem {
+  to: string;
+  label: string;
+  exact?: boolean;
+}
 
 export function isStaff(roles: readonly string[]): boolean {
   return roles.includes("admin") || roles.includes("organizer");
@@ -10,7 +14,10 @@ export function isStaff(roles: readonly string[]): boolean {
 export function navFor(roles: readonly string[], volunteerEventCount: number): NavItem[] {
   const items: NavItem[] = [{ to: "/dashboard", label: "Overview", exact: true }];
   if (roles.includes("student")) {
-    items.push({ to: "/dashboard/events", label: "Events" }, { to: "/dashboard/tickets", label: "My tickets" });
+    items.push(
+      { to: "/dashboard/events", label: "Events" },
+      { to: "/dashboard/tickets", label: "My tickets" },
+    );
   } else {
     items.push({ to: "/dashboard/events", label: "Events" });
   }

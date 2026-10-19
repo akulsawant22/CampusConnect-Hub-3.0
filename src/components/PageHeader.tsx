@@ -1,6 +1,14 @@
 import type { ReactNode } from "react";
 
-export function PageHeader({ title, sub, action }: { title: string; sub?: string; action?: ReactNode }) {
+export function PageHeader({
+  title,
+  sub,
+  action,
+}: {
+  title: string;
+  sub?: string;
+  action?: ReactNode;
+}) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
@@ -13,7 +21,11 @@ export function PageHeader({ title, sub, action }: { title: string; sub?: string
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">{children}</div>;
+  return (
+    <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
+      {children}
+    </div>
+  );
 }
 
 export function Stat({ label, value }: { label: string; value: ReactNode }) {

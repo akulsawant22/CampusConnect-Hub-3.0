@@ -2,7 +2,9 @@ export const fmtDate = (s: string | null | undefined) =>
   s ? new Date(s).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—";
 
 export const errMsg = (e: unknown) =>
-  e && typeof e === "object" && "message" in e ? String((e as { message: string }).message) : "Something went wrong";
+  e && typeof e === "object" && "message" in e
+    ? String((e as { message: string }).message)
+    : "Something went wrong";
 
 // datetime-local <-> ISO
 export const toLocalInput = (iso?: string | null) => {

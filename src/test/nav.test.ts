@@ -16,7 +16,9 @@ describe("role-derived navigation", () => {
     expect(l).not.toContain("Admin");
   });
   it("admin gets Admin and Manage events", () => {
-    expect(labels(["student", "admin"])).toEqual(expect.arrayContaining(["Admin", "Manage events"]));
+    expect(labels(["student", "admin"])).toEqual(
+      expect.arrayContaining(["Admin", "Manage events"]),
+    );
   });
   it("student volunteer keeps student features and gets Volunteer", () => {
     expect(labels(["student"], 2)).toEqual(expect.arrayContaining(["My tickets", "Volunteer"]));

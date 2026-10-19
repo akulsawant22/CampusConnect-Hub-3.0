@@ -7,10 +7,16 @@ describe("post sign-in destination", () => {
     expect(postSignInTarget(["admin"], false)).toEqual({ kind: "navigate", to: "/dashboard" });
   });
   it("staff sign-in sends admins to /dashboard/admin", () => {
-    expect(postSignInTarget(["student", "admin"], true)).toEqual({ kind: "navigate", to: "/dashboard/admin" });
+    expect(postSignInTarget(["student", "admin"], true)).toEqual({
+      kind: "navigate",
+      to: "/dashboard/admin",
+    });
   });
   it("staff sign-in sends organizers to /dashboard/manage", () => {
-    expect(postSignInTarget(["organizer"], true)).toEqual({ kind: "navigate", to: "/dashboard/manage" });
+    expect(postSignInTarget(["organizer"], true)).toEqual({
+      kind: "navigate",
+      to: "/dashboard/manage",
+    });
   });
   it("staff sign-in denies students and accounts with no role", () => {
     expect(postSignInTarget(["student"], true)).toEqual({ kind: "denied" });
@@ -31,6 +37,8 @@ describe("withTimeout", () => {
     vi.useRealTimers();
   });
   it("passes through the original rejection", async () => {
-    await expect(withTimeout(Promise.reject(new Error("Invalid login credentials")), 1000, "X")).rejects.toThrow("Invalid login");
+    await expect(
+      withTimeout(Promise.reject(new Error("Invalid login credentials")), 1000, "X"),
+    ).rejects.toThrow("Invalid login");
   });
 });
